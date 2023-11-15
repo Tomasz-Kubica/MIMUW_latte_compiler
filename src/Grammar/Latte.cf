@@ -58,23 +58,31 @@ Bool.      Type ::= "boolean" ;
 
 Void.      Type ::= "void" ;
 
+Array.     Type ::= Type "[]" ;
+
+Struct.    Type ::= Ident ;
+
 internal   Fun. Type ::= Type "(" [Type] ")" ;
 
 separator  Type "," ;
 
 -- Expressions ---------------------------------------------
 
-EVar.      Expr6 ::= Ident ;
+EVar.      Expr7 ::= Ident ;
 
-ELitInt.   Expr6 ::= Integer ;
+ELitInt.   Expr7 ::= Integer ;
 
-ELitTrue.  Expr6 ::= "true" ;
+ELitTrue.  Expr7 ::= "true" ;
 
-ELitFalse. Expr6 ::= "false" ;
+ELitFalse. Expr7 ::= "false" ;
 
-EApp.      Expr6 ::= Ident "(" [Expr] ")" ;
+EApp.      Expr7 ::= Ident "(" [Expr] ")" ;
 
-EString.   Expr6 ::= String ;
+EString.   Expr7 ::= String ;
+
+EStruct.   Expr7 ::= "new" Ident ;
+
+EAttr.     Expr6 ::= Expr7 "." Ident ;
 
 Neg.       Expr5 ::= "-" Expr6 ;
 
@@ -90,7 +98,7 @@ EAnd.      Expr1 ::= Expr2 "&&" Expr1 ;
 
 EOr.       Expr ::= Expr1 "||" Expr ;
 
-coercions  Expr 6 ;
+coercions  Expr 7 ;
 
 separator  Expr "," ;
 
