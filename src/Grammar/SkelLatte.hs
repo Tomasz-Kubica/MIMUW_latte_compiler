@@ -62,7 +62,7 @@ transType x = case x of
   AbsLatte.Bool _ -> failure x
   AbsLatte.Void _ -> failure x
   AbsLatte.Array _ type_ -> failure x
-  AbsLatte.Structure _ ident -> failure x
+  AbsLatte.Struct _ ident -> failure x
   AbsLatte.Fun _ type_ types -> failure x
 
 transExpr :: Show a => AbsLatte.Expr' a -> Result
@@ -73,6 +73,7 @@ transExpr x = case x of
   AbsLatte.ELitFalse _ -> failure x
   AbsLatte.EApp _ ident exprs -> failure x
   AbsLatte.EString _ string -> failure x
+  AbsLatte.EStruct _ ident -> failure x
   AbsLatte.EAttr _ expr ident -> failure x
   AbsLatte.Neg _ expr -> failure x
   AbsLatte.Not _ expr -> failure x

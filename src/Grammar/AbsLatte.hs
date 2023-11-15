@@ -61,7 +61,7 @@ data Type' a
     | Bool a
     | Void a
     | Array a (Type' a)
-    | Structure a Ident
+    | Struct a Ident
     | Fun a (Type' a) [Type' a]
   deriving (C.Eq, C.Ord, C.Show, C.Read, C.Functor, C.Foldable, C.Traversable)
 
@@ -73,6 +73,7 @@ data Expr' a
     | ELitFalse a
     | EApp a Ident [Expr' a]
     | EString a String
+    | EStruct a Ident
     | EAttr a (Expr' a) Ident
     | Neg a (Expr' a)
     | Not a (Expr' a)
@@ -156,7 +157,7 @@ instance HasPosition Type where
     Bool p -> p
     Void p -> p
     Array p _ -> p
-    Structure p _ -> p
+    Struct p _ -> p
     Fun p _ _ -> p
 
 instance HasPosition Expr where
@@ -167,6 +168,7 @@ instance HasPosition Expr where
     ELitFalse p -> p
     EApp p _ _ -> p
     EString p _ -> p
+    EStruct p _ -> p
     EAttr p _ _ -> p
     Neg p _ -> p
     Not p _ -> p

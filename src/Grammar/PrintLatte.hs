@@ -202,7 +202,7 @@ instance Print (AbsLatte.Type' a) where
     AbsLatte.Bool _ -> prPrec i 0 (concatD [doc (showString "boolean")])
     AbsLatte.Void _ -> prPrec i 0 (concatD [doc (showString "void")])
     AbsLatte.Array _ type_ -> prPrec i 0 (concatD [prt 0 type_, doc (showString "[]")])
-    AbsLatte.Structure _ id_ -> prPrec i 0 (concatD [prt 0 id_])
+    AbsLatte.Struct _ id_ -> prPrec i 0 (concatD [prt 0 id_])
     AbsLatte.Fun _ type_ types -> prPrec i 0 (concatD [prt 0 type_, doc (showString "("), prt 0 types, doc (showString ")")])
 
 instance Print [AbsLatte.Type' a] where
@@ -218,6 +218,7 @@ instance Print (AbsLatte.Expr' a) where
     AbsLatte.ELitFalse _ -> prPrec i 7 (concatD [doc (showString "false")])
     AbsLatte.EApp _ id_ exprs -> prPrec i 7 (concatD [prt 0 id_, doc (showString "("), prt 0 exprs, doc (showString ")")])
     AbsLatte.EString _ str -> prPrec i 7 (concatD [printString str])
+    AbsLatte.EStruct _ id_ -> prPrec i 7 (concatD [doc (showString "new"), prt 0 id_])
     AbsLatte.EAttr _ expr id_ -> prPrec i 6 (concatD [prt 7 expr, doc (showString "."), prt 0 id_])
     AbsLatte.Neg _ expr -> prPrec i 5 (concatD [doc (showString "-"), prt 6 expr])
     AbsLatte.Not _ expr -> prPrec i 5 (concatD [doc (showString "!"), prt 6 expr])

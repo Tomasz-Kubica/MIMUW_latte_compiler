@@ -50,14 +50,15 @@ import LexLatte
   'false'   { PT _ (TS _ 25) }
   'if'      { PT _ (TS _ 26) }
   'int'     { PT _ (TS _ 27) }
-  'return'  { PT _ (TS _ 28) }
-  'string'  { PT _ (TS _ 29) }
-  'true'    { PT _ (TS _ 30) }
-  'void'    { PT _ (TS _ 31) }
-  'while'   { PT _ (TS _ 32) }
-  '{'       { PT _ (TS _ 33) }
-  '||'      { PT _ (TS _ 34) }
-  '}'       { PT _ (TS _ 35) }
+  'new'     { PT _ (TS _ 28) }
+  'return'  { PT _ (TS _ 29) }
+  'string'  { PT _ (TS _ 30) }
+  'true'    { PT _ (TS _ 31) }
+  'void'    { PT _ (TS _ 32) }
+  'while'   { PT _ (TS _ 33) }
+  '{'       { PT _ (TS _ 34) }
+  '||'      { PT _ (TS _ 35) }
+  '}'       { PT _ (TS _ 36) }
   L_Ident   { PT _ (TV _)    }
   L_integ   { PT _ (TI _)    }
   L_quoted  { PT _ (TL _)    }
@@ -137,7 +138,7 @@ Type
   | 'boolean' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.Bool (uncurry AbsLatte.BNFC'Position (tokenLineCol $1))) }
   | 'void' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.Void (uncurry AbsLatte.BNFC'Position (tokenLineCol $1))) }
   | Type '[]' { (fst $1, AbsLatte.Array (fst $1) (snd $1)) }
-  | Ident { (fst $1, AbsLatte.Structure (fst $1) (snd $1)) }
+  | Ident { (fst $1, AbsLatte.Struct (fst $1) (snd $1)) }
 
 ListType :: { (AbsLatte.BNFC'Position, [AbsLatte.Type]) }
 ListType
@@ -153,6 +154,7 @@ Expr7
   | 'false' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.ELitFalse (uncurry AbsLatte.BNFC'Position (tokenLineCol $1))) }
   | Ident '(' ListExpr ')' { (fst $1, AbsLatte.EApp (fst $1) (snd $1) (snd $3)) }
   | String { (fst $1, AbsLatte.EString (fst $1) (snd $1)) }
+  | 'new' Ident { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.EStruct (uncurry AbsLatte.BNFC'Position (tokenLineCol $1)) (snd $2)) }
   | '(' Expr ')' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), (snd $2)) }
 
 Expr6 :: { (AbsLatte.BNFC'Position, AbsLatte.Expr) }
