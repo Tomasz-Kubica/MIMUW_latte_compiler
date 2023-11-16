@@ -40,7 +40,7 @@ transStmt x = case x of
   AbsLatte.Empty _ -> failure x
   AbsLatte.BStmt _ block -> failure x
   AbsLatte.Decl _ type_ items -> failure x
-  AbsLatte.Ass _ ident expr -> failure x
+  AbsLatte.Ass _ expr1 expr2 -> failure x
   AbsLatte.Incr _ ident -> failure x
   AbsLatte.Decr _ ident -> failure x
   AbsLatte.Ret _ expr -> failure x
@@ -75,6 +75,7 @@ transExpr x = case x of
   AbsLatte.EString _ string -> failure x
   AbsLatte.EStruct _ ident -> failure x
   AbsLatte.EAttr _ expr ident -> failure x
+  AbsLatte.EArrEl _ expr1 expr2 -> failure x
   AbsLatte.Neg _ expr -> failure x
   AbsLatte.Not _ expr -> failure x
   AbsLatte.EMul _ expr1 mulop expr2 -> failure x

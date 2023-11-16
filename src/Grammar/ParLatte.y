@@ -44,21 +44,23 @@ import LexLatte
   '=='      { PT _ (TS _ 19) }
   '>'       { PT _ (TS _ 20) }
   '>='      { PT _ (TS _ 21) }
-  '[]'      { PT _ (TS _ 22) }
-  'boolean' { PT _ (TS _ 23) }
-  'else'    { PT _ (TS _ 24) }
-  'false'   { PT _ (TS _ 25) }
-  'if'      { PT _ (TS _ 26) }
-  'int'     { PT _ (TS _ 27) }
-  'new'     { PT _ (TS _ 28) }
-  'return'  { PT _ (TS _ 29) }
-  'string'  { PT _ (TS _ 30) }
-  'true'    { PT _ (TS _ 31) }
-  'void'    { PT _ (TS _ 32) }
-  'while'   { PT _ (TS _ 33) }
-  '{'       { PT _ (TS _ 34) }
-  '||'      { PT _ (TS _ 35) }
-  '}'       { PT _ (TS _ 36) }
+  '['       { PT _ (TS _ 22) }
+  '[]'      { PT _ (TS _ 23) }
+  ']'       { PT _ (TS _ 24) }
+  'boolean' { PT _ (TS _ 25) }
+  'else'    { PT _ (TS _ 26) }
+  'false'   { PT _ (TS _ 27) }
+  'if'      { PT _ (TS _ 28) }
+  'int'     { PT _ (TS _ 29) }
+  'new'     { PT _ (TS _ 30) }
+  'return'  { PT _ (TS _ 31) }
+  'string'  { PT _ (TS _ 32) }
+  'true'    { PT _ (TS _ 33) }
+  'void'    { PT _ (TS _ 34) }
+  'while'   { PT _ (TS _ 35) }
+  '{'       { PT _ (TS _ 36) }
+  '||'      { PT _ (TS _ 37) }
+  '}'       { PT _ (TS _ 38) }
   L_Ident   { PT _ (TV _)    }
   L_integ   { PT _ (TI _)    }
   L_quoted  { PT _ (TL _)    }
@@ -111,7 +113,7 @@ Stmt
   : ';' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.Empty (uncurry AbsLatte.BNFC'Position (tokenLineCol $1))) }
   | Block { (fst $1, AbsLatte.BStmt (fst $1) (snd $1)) }
   | Type ListItem ';' { (fst $1, AbsLatte.Decl (fst $1) (snd $1) (snd $2)) }
-  | Ident '=' Expr ';' { (fst $1, AbsLatte.Ass (fst $1) (snd $1) (snd $3)) }
+  | Expr '=' Expr ';' { (fst $1, AbsLatte.Ass (fst $1) (snd $1) (snd $3)) }
   | Ident '++' ';' { (fst $1, AbsLatte.Incr (fst $1) (snd $1)) }
   | Ident '--' ';' { (fst $1, AbsLatte.Decr (fst $1) (snd $1)) }
   | 'return' Expr ';' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.Ret (uncurry AbsLatte.BNFC'Position (tokenLineCol $1)) (snd $2)) }
@@ -160,6 +162,7 @@ Expr7
 Expr6 :: { (AbsLatte.BNFC'Position, AbsLatte.Expr) }
 Expr6
   : Expr7 '.' Ident { (fst $1, AbsLatte.EAttr (fst $1) (snd $1) (snd $3)) }
+  | Expr7 '[' Expr7 ']' { (fst $1, AbsLatte.EArrEl (fst $1) (snd $1) (snd $3)) }
   | Expr7 { (fst $1, (snd $1)) }
 
 Expr5 :: { (AbsLatte.BNFC'Position, AbsLatte.Expr) }

@@ -37,11 +37,11 @@ The reserved words used in Latte are the following:
 The symbols used in Latte are the following:
   | ( | ) | , | {
   | } | ; | = | ++
-  | -- | [] | . | -
-  | ! | && | || | +
-  | * | / | % | <
-  | <= | > | >= | ==
-  | != |  |  |
+  | -- | [] | . | [
+  | ] | - | ! | &&
+  | || | + | * | /
+  | % | < | <= | >
+  | >= | == | != |
 
 ===Comments===
 Single-line comments begin with #, //.Multiple-line comments are  enclosed with /* and */.
@@ -66,7 +66,7 @@ All other symbols are terminals.
   | //Stmt// | -> | ``;``
   |  |  **|**  | //Block//
   |  |  **|**  | //Type// //[Item]// ``;``
-  |  |  **|**  | //Ident// ``=`` //Expr// ``;``
+  |  |  **|**  | //Expr// ``=`` //Expr// ``;``
   |  |  **|**  | //Ident// ``++`` ``;``
   |  |  **|**  | //Ident// ``--`` ``;``
   |  |  **|**  | ``return`` //Expr// ``;``
@@ -97,6 +97,7 @@ All other symbols are terminals.
   |  |  **|**  | ``new`` //Ident//
   |  |  **|**  | ``(`` //Expr// ``)``
   | //Expr6// | -> | //Expr7// ``.`` //Ident//
+  |  |  **|**  | //Expr7// ``[`` //Expr7// ``]``
   |  |  **|**  | //Expr7//
   | //Expr5// | -> | ``-`` //Expr6//
   |  |  **|**  | ``!`` //Expr6//

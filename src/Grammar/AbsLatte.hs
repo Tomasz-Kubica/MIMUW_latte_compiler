@@ -39,7 +39,7 @@ data Stmt' a
     = Empty a
     | BStmt a (Block' a)
     | Decl a (Type' a) [Item' a]
-    | Ass a Ident (Expr' a)
+    | Ass a (Expr' a) (Expr' a)
     | Incr a Ident
     | Decr a Ident
     | Ret a (Expr' a)
@@ -75,6 +75,7 @@ data Expr' a
     | EString a String
     | EStruct a Ident
     | EAttr a (Expr' a) Ident
+    | EArrEl a (Expr' a) (Expr' a)
     | Neg a (Expr' a)
     | Not a (Expr' a)
     | EMul a (Expr' a) (MulOp' a) (Expr' a)
@@ -170,6 +171,7 @@ instance HasPosition Expr where
     EString p _ -> p
     EStruct p _ -> p
     EAttr p _ _ -> p
+    EArrEl p _ _ -> p
     Neg p _ -> p
     Not p _ -> p
     EMul p _ _ _ -> p

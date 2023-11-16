@@ -44,20 +44,23 @@ import LexLatte
   '=='      { PT _ (TS _ 19) }
   '>'       { PT _ (TS _ 20) }
   '>='      { PT _ (TS _ 21) }
-  '[]'      { PT _ (TS _ 22) }
-  'boolean' { PT _ (TS _ 23) }
-  'else'    { PT _ (TS _ 24) }
-  'false'   { PT _ (TS _ 25) }
-  'if'      { PT _ (TS _ 26) }
-  'int'     { PT _ (TS _ 27) }
-  'return'  { PT _ (TS _ 28) }
-  'string'  { PT _ (TS _ 29) }
-  'true'    { PT _ (TS _ 30) }
-  'void'    { PT _ (TS _ 31) }
-  'while'   { PT _ (TS _ 32) }
-  '{'       { PT _ (TS _ 33) }
-  '||'      { PT _ (TS _ 34) }
-  '}'       { PT _ (TS _ 35) }
+  '['       { PT _ (TS _ 22) }
+  '[]'      { PT _ (TS _ 23) }
+  ']'       { PT _ (TS _ 24) }
+  'boolean' { PT _ (TS _ 25) }
+  'else'    { PT _ (TS _ 26) }
+  'false'   { PT _ (TS _ 27) }
+  'if'      { PT _ (TS _ 28) }
+  'int'     { PT _ (TS _ 29) }
+  'new'     { PT _ (TS _ 30) }
+  'return'  { PT _ (TS _ 31) }
+  'string'  { PT _ (TS _ 32) }
+  'true'    { PT _ (TS _ 33) }
+  'void'    { PT _ (TS _ 34) }
+  'while'   { PT _ (TS _ 35) }
+  '{'       { PT _ (TS _ 36) }
+  '||'      { PT _ (TS _ 37) }
+  '}'       { PT _ (TS _ 38) }
   L_Ident   { PT _ (TV _)    }
   L_integ   { PT _ (TI _)    }
   L_quoted  { PT _ (TL _)    }
@@ -137,7 +140,7 @@ Type
   | 'boolean' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.Bool (uncurry AbsLatte.BNFC'Position (tokenLineCol $1))) }
   | 'void' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.Void (uncurry AbsLatte.BNFC'Position (tokenLineCol $1))) }
   | Type '[]' { (fst $1, AbsLatte.Array (fst $1) (snd $1)) }
-  | Ident { (fst $1, AbsLatte.Structure (fst $1) (snd $1)) }
+  | Ident { (fst $1, AbsLatte.Struct (fst $1) (snd $1)) }
 
 ListType :: { (AbsLatte.BNFC'Position, [AbsLatte.Type]) }
 ListType
@@ -153,11 +156,13 @@ Expr7
   | 'false' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.ELitFalse (uncurry AbsLatte.BNFC'Position (tokenLineCol $1))) }
   | Ident '(' ListExpr ')' { (fst $1, AbsLatte.EApp (fst $1) (snd $1) (snd $3)) }
   | String { (fst $1, AbsLatte.EString (fst $1) (snd $1)) }
+  | 'new' Ident { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.EStruct (uncurry AbsLatte.BNFC'Position (tokenLineCol $1)) (snd $2)) }
   | '(' Expr ')' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), (snd $2)) }
 
 Expr6 :: { (AbsLatte.BNFC'Position, AbsLatte.Expr) }
 Expr6
   : Expr7 '.' Ident { (fst $1, AbsLatte.EAttr (fst $1) (snd $1) (snd $3)) }
+  | Expr7 '[' Expr7 ']' { (fst $1, AbsLatte.EArrEl (fst $1) (snd $1) (snd $3)) }
   | Expr7 { (fst $1, (snd $1)) }
 
 Expr5 :: { (AbsLatte.BNFC'Position, AbsLatte.Expr) }

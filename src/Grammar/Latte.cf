@@ -30,7 +30,7 @@ Init.      Item ::= Ident "=" Expr ;
 
 separator nonempty Item "," ;
 
-Ass.       Stmt ::= Ident "=" Expr  ";" ;
+Ass.       Stmt ::= Expr "=" Expr  ";" ;
 
 Incr.      Stmt ::= Ident "++"  ";" ;
 
@@ -83,6 +83,8 @@ EString.   Expr7 ::= String ;
 EStruct.   Expr7 ::= "new" Ident ;
 
 EAttr.     Expr6 ::= Expr7 "." Ident ;
+
+EArrEl.    Expr6 ::= Expr7 "[" Expr7 "]" ;
 
 Neg.       Expr5 ::= "-" Expr6 ;
 
