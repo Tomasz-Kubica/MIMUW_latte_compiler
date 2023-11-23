@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+-- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 -- module LlvmCompiler ( LCMException, genLlvmCode ) where
 
@@ -28,6 +28,8 @@ data TCMEnv = LCMState {
   envStructTypes :: StructTypes,
   envFunctions :: DeclaredFunctions
 }
+
+type ChangeEnv = TCMEnv -> TCMEnv
 
 type TCM a = ExceptT TCMException (ReaderT TCMEnv Identity) a
 
@@ -59,6 +61,16 @@ getFunctionSignature env id = Data.Map.lookup id functions
   where
     functions = envFunctions env
 
+getReturnType :: TCMEnv -> Type
+getReturnType = envReturnType
+
+addVar :: Type -> Ident -> ChangeEnv
+addVar t id env = env'
+  where
+    types = envTypes env
+    types' = Data.Map.insert id t types
+    env' = env {envTypes = types'}
+
 -- Show location in code
 showLoc :: BNFC'Position -> String
 showLoc Nothing = "[Position unknown]"
@@ -79,6 +91,7 @@ compareTypes _ _ = False
 
 -- Check code
 
+-- Check if expression is valid and return it's type
 checkExpr :: Expr -> TCM Type
 
 checkExpr (EVar loc id) = do
@@ -198,32 +211,89 @@ compareArgs loc (typesH:typesT) (exprH:exprT) = do
     then compareArgs loc typesT exprT
     else throwError ("Wrong argument type, at " ++ showLoc loc)
 
-checkStmt :: Stmt -> TCM (TCMEnv -> TCMEnv)
+-- Stmt -> (does_contain_return, ChangeEnv)
+checkStmt :: Stmt -> TCM (Bool, ChangeEnv)
 
-checkStmt (Empty _loc) = return id
+checkStmt (Empty _loc) = return (False, id)
+
+checkStmt (BStmt _loc (Block _ stmts)) = do
+  (hasRet, _) <- checkStmtList stmts
+  return (hasRet, id) -- Ignore env changes done by stmts inside block, they don't affect anything outside of it
 
 checkStmt (Ass loc dest val) = do
   destT <- checkLValue loc dest
   valT <- checkExpr val
   if compareTypes destT valT
-    then return id
+    then return (False, id)
     else throwError ("Wrong type of assigned value, at " ++ showLoc loc)
 
 checkStmt (Incr loc varId) = do
   t <- checkExpr (EVar loc varId)
   case t of
-    Int _ -> return id
+    Int _ -> return (False, id)
     _ -> throwError ("Trying to increment variable of non integer type, at " ++ showLoc loc)
 
 checkStmt (Decr loc varId) = do
   t <- checkExpr (EVar loc varId)
   case t of
-    Int _ -> return id
+    Int _ -> return (False, id)
     _ -> throwError ("Trying to decrement variable of non integer type, at " ++ showLoc loc)
 
 checkStmt (SExp loc exp) = do
   checkExpr exp
-  return id
+  return (False, id)
+
+checkStmt (Cond loc cond body) = do
+  condT <- checkExpr cond
+  case condT of
+    Bool ma -> do
+      (hasRet, _) <- checkStmt body
+      return (hasRet, id)
+    _ -> throwError ("Condition of non boolean type, at " ++ showLoc loc)
+
+checkStmt (CondElse loc cond bodyT bodyF) = do
+  condT <- checkExpr cond
+  case condT of
+    Bool ma -> do
+      (hasRetT, _) <- checkStmt bodyT
+      (hasRetF, _) <- checkStmt bodyF
+      return (hasRetT && hasRetF, id)
+    _ -> throwError ("Condition of non boolean type, at " ++ showLoc loc)
+
+checkStmt (While loc cond body) = do
+  condT <- checkExpr cond
+  case condT of
+    Bool ma -> do
+      (hasRet, _) <- checkStmt body
+      return (hasRet, id)
+    _ -> throwError ("Condition of non boolean type, at " ++ showLoc loc)
+
+checkStmt (Ret loc expr) = do
+  exprT <- checkExpr expr
+  env <- ask
+  let expectedT = getReturnType env
+  if compareTypes exprT expectedT
+    then return (True, id)
+    else throwError ("Invalid type of returned value, at " ++ showLoc loc)
+
+checkStmt (VRet loc) = do
+  env <- ask
+  let expectedT = getReturnType env
+  if compareTypes (Void noLoc) expectedT
+    then return (True, id)
+    else throwError ("Void return but vale was expected, at " ++ showLoc loc)
+
+checkStmt (Decl loc declType vars) = do
+  changeEnv <- declVars declType vars
+  return (False, changeEnv)
+
+-- Bool - does contain ret
+checkStmtList :: [Stmt] -> TCM (Bool, ChangeEnv)
+checkStmtList [] = return (False, id)
+checkStmtList (h:t) = do
+  (hasRetH, hChangeEnv) <- checkStmt h
+  (hasRetT, tChangeEnv) <- local hChangeEnv (checkStmtList t)
+  return (hasRetH || hasRetT,tChangeEnv.hChangeEnv) -- ?????
 
 -- Check if expression is an L-value and returns it's type
 checkLValue :: BNFC'Position -> Expr -> TCM Type
@@ -236,3 +306,22 @@ checkLValue _ expr@EArrEl {} = checkExpr expr
 
 checkLValue loc _ = throwError ("Value at left side of assignment isn't L-value, at " ++ showLoc loc)
 
+-- Declare variable 
+declVar :: Type -> Item -> TCM ChangeEnv
+
+declVar varType (NoInit loc varID) = return (addVar varType varID)
+
+declVar varType (Init loc varID exp) = do
+  expType <- checkExpr exp
+  if compareTypes expType varType
+    then return (addVar varType varID)
+    else throwError ("Expression of wrong type when initializing variable, at " ++ showLoc loc)
+
+declVars :: Type -> [Item] -> TCM ChangeEnv
+
+declVars _varType [] = return id
+
+declVars varType (h:t) = do
+  changeH <- declVar varType h
+  changeT <- local changeH (declVars varType t)
+  return (changeT.changeH)
