@@ -71,6 +71,16 @@ addVar t id env = env'
     types' = Data.Map.insert id t types
     env' = env {envTypes = types'}
 
+addFun :: FunctionSignature -> Ident -> ChangeEnv
+addFun signature fID env = env'
+  where
+    funs = envFunctions env
+    funs' = Data.Map.insert fID signature funs
+    env' = env {envFunctions = funs'}
+
+setRetType :: Type -> ChangeEnv
+setRetType t env = env {envReturnType = t}
+
 -- Show location in code
 showLoc :: BNFC'Position -> String
 showLoc Nothing = "[Position unknown]"
@@ -325,3 +335,40 @@ declVars varType (h:t) = do
   changeH <- declVar varType h
   changeT <- local changeH (declVars varType t)
   return (changeT.changeH)
+
+checkTopDef :: TopDef -> TCM ChangeEnv
+checkTopDef (FnDef loc retType funID args body) = do
+  (argsT, insArgs) <- insertArgs args
+  let signature = FunctionSignature retType argsT
+  let insFun = addFun signature funID
+  let insRetT = setRetType retType
+  let insAll = insArgs.insFun.insRetT
+  (isRet, _) <- local insAll (checkStmt (BStmt noLoc body))
+  let isRetVoid = compareTypes retType (Void noLoc)
+  if isRetVoid || isRet
+    then return insFun
+    else throwError ("Function with non void return type can possibly end without return statement, at " ++ showLoc loc)
+
+
+insertArgs :: [Arg] -> TCM ([Type], ChangeEnv)
+
+insertArgs [] = return ([], id)
+
+insertArgs ((Arg loc argT argID):t) = do
+  let insArg = addVar argT argID
+  (tailT, insT) <- local insArg (insertArgs t)
+  return (argT:tailT, insT.insArg)
+
+checkTopDefs :: [TopDef] -> TCM ChangeEnv
+
+checkTopDefs [] = return id
+
+checkTopDefs (h:t) = do
+  changeHead <- checkTopDef h
+  changeTail <- local changeHead (checkTopDefs t)
+  return (changeTail.changeHead)
+
+checkProg :: Program -> TCM ()
+checkProg (Program _ topDefs) = do
+  checkTopDefs topDefs
+  return ()
