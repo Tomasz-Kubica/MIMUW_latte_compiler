@@ -1,6 +1,6 @@
 -- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
--- module LlvmCompiler ( LCMException, genLlvmCode ) where
+module TypeChecker ( TCMException, executeProgramCheck ) where
 
 import Data.Functor.Identity (Identity (runIdentity))
 import Control.Monad.State
@@ -9,7 +9,7 @@ import Control.Monad.Reader
 import Control.Monad.Except
 import qualified Data.Map
 
-import Grammar.AbsLatte
+import AbsLatte
 
 type TypesMap = Data.Map.Map Ident Type
 type StructType = Data.Map.Map Ident Type
@@ -22,7 +22,7 @@ noLoc = Nothing
 
 -- Monad elements
 type TCMException = String
-data TCMEnv = LCMState {
+data TCMEnv = TCMEnv {
   envTypes :: TypesMap,
   envReturnType :: Type,
   envStructTypes :: StructTypes,
@@ -37,6 +37,48 @@ runTCM :: TCM a -> TCMEnv -> Either TCMException a
 runTCM monad env = res
   where
     res = runIdentity (runReaderT (runExceptT monad) env)
+
+-- Monad constants
+
+printIntIdent :: Ident
+printIntIdent = Ident "printInt"
+
+printIntSignature :: FunctionSignature
+printIntSignature = FunctionSignature (Void noLoc) [Int noLoc]
+
+printStringIdent :: Ident
+printStringIdent = Ident "printString"
+
+printStringSignature :: FunctionSignature
+printStringSignature = FunctionSignature (Void noLoc) [Str noLoc]
+
+readIntIdent :: Ident
+readIntIdent = Ident "readInt"
+
+readIntSignature :: FunctionSignature
+readIntSignature = FunctionSignature (Int noLoc) []
+
+readStringIdent :: Ident
+readStringIdent = Ident "readString"
+
+readStringSignature :: FunctionSignature
+readStringSignature = FunctionSignature (Str noLoc) []
+
+standardFunctions :: DeclaredFunctions
+standardFunctions = Data.Map.fromList [
+  (printIntIdent, printIntSignature),
+  (printStringIdent, printStringSignature),
+  (readIntIdent, readIntSignature),
+  (readStringIdent, readStringSignature)
+  ]
+
+emptyTCMEnv :: TCMEnv
+emptyTCMEnv = TCMEnv {
+  envTypes = Data.Map.empty,
+  envReturnType = Void noLoc,
+  envStructTypes = Data.Map.empty,
+  envFunctions = standardFunctions
+}
 
 -- Access env
 getType :: TCMEnv -> Ident -> Maybe Type
@@ -180,14 +222,14 @@ checkExpr (EAdd loc expr1 _addOp expr2) = do
   expr1T <- checkExpr expr1
   expr2T <- checkExpr expr2
   case (expr1T, expr2T) of
-    (Int _, Int _) -> return (Bool noLoc)
+    (Int _, Int _) -> return (Int noLoc)
     _ -> throwError ("Arithmetic operation of non integer values, at " ++ showLoc loc)
 
 checkExpr (EMul loc expr1 _addOp expr2) = do
   expr1T <- checkExpr expr1
   expr2T <- checkExpr expr2
   case (expr1T, expr2T) of
-    (Int _, Int _) -> return (Bool noLoc)
+    (Int _, Int _) -> return (Int noLoc)
     _ -> throwError ("Arithmetic operation of non integer values, at " ++ showLoc loc)
 
 checkExpr (EArrEl loc arr index) = do
@@ -235,7 +277,7 @@ checkStmt (Ass loc dest val) = do
   valT <- checkExpr val
   if compareTypes destT valT
     then return (False, id)
-    else throwError ("Wrong type of assigned value, at " ++ showLoc loc)
+    else throwError ("Wrong type of assigned value, at " ++ showLoc loc ++ show destT ++ " | " ++ show valT)
 
 checkStmt (Incr loc varId) = do
   t <- checkExpr (EVar loc varId)
@@ -378,3 +420,8 @@ insertFunFromDef (FnDef loc retType funID args _body) = addFun signature funID
 checkProg :: Program -> TCM ()
 checkProg (Program _ topDefs) = do
   checkTopDefs topDefs
+
+executeProgramCheck :: Program -> Either TCMException ()
+executeProgramCheck program = runTCM checkMonad emptyTCMEnv
+  where
+    checkMonad = checkProg program
