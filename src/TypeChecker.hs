@@ -336,17 +336,16 @@ declVars varType (h:t) = do
   changeT <- local changeH (declVars varType t)
   return (changeT.changeH)
 
-checkTopDef :: TopDef -> TCM ChangeEnv
+checkTopDef :: TopDef -> TCM ()
 checkTopDef (FnDef loc retType funID args body) = do
   (argsT, insArgs) <- insertArgs args
   let signature = FunctionSignature retType argsT
-  let insFun = addFun signature funID
   let insRetT = setRetType retType
-  let insAll = insArgs.insFun.insRetT
+  let insAll = insArgs.insRetT
   (isRet, _) <- local insAll (checkStmt (BStmt noLoc body))
   let isRetVoid = compareTypes retType (Void noLoc)
   if isRetVoid || isRet
-    then return insFun
+    then return ()
     else throwError ("Function with non void return type can possibly end without return statement, at " ++ showLoc loc)
 
 
@@ -359,16 +358,23 @@ insertArgs ((Arg loc argT argID):t) = do
   (tailT, insT) <- local insArg (insertArgs t)
   return (argT:tailT, insT.insArg)
 
-checkTopDefs :: [TopDef] -> TCM ChangeEnv
+checkTopDefs :: [TopDef] -> TCM ()
 
-checkTopDefs [] = return id
+checkTopDefs defs = do
+  -- TODO: Maybe check if function names are unique
+  let inserts = map insertFunFromDef defs
+  let joinedInsert = foldr (.) id inserts
+  let checks = map checkTopDef defs
+  let checkAll = sequence_ checks
+  local joinedInsert checkAll
 
-checkTopDefs (h:t) = do
-  changeHead <- checkTopDef h
-  changeTail <- local changeHead (checkTopDefs t)
-  return (changeTail.changeHead)
+insertFunFromDef :: TopDef -> TCMEnv -> TCMEnv
+insertFunFromDef (FnDef loc retType funID args _body) = addFun signature funID
+  where
+    signature = FunctionSignature retType argsT
+    argsT = map argToType args
+    argToType (Arg _loc argType _id) = argType
 
 checkProg :: Program -> TCM ()
 checkProg (Program _ topDefs) = do
   checkTopDefs topDefs
-  return ()
