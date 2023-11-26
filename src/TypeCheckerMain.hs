@@ -4,6 +4,7 @@ import System.Environment ( getArgs )
 import System.IO (hPutStrLn, stderr)
 import System.Process
 import System.FilePath
+import System.Exit (exitFailure)
 
 import qualified Data.Maybe
 
@@ -17,12 +18,12 @@ checkFile file = do
   let tokens = myLexer fileContent
   let maybeProgram = pProgram tokens
   case maybeProgram of
-    Left parser_err -> hPutStrLn stderr ("Err from file " ++ file ++ ": " ++ parser_err)
+    Left parser_err -> hPutStrLn stderr "ERROR" >> putStrLn ("Err from file " ++ file ++ ": " ++ parser_err) >> exitFailure
     Right program -> do
       let typeCheckResult = executeProgramCheck program
       case typeCheckResult of
-        Left typeCheckErr -> hPutStrLn stderr ("Err from file " ++ file ++ ": " ++ typeCheckErr)
-        Right program -> putStrLn ("OK - " ++ file)
+        Left typeCheckErr -> hPutStrLn stderr "ERROR" >> putStrLn ("Err from file " ++ file ++ ": " ++ typeCheckErr) >> exitFailure
+        Right program -> hPutStrLn stderr "OK" >> putStrLn ("OK - " ++ file)
 
 usage :: IO ()
 usage = do

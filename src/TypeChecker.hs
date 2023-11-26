@@ -3,11 +3,14 @@
 module TypeChecker ( TCMException, executeProgramCheck ) where
 
 import Data.Functor.Identity (Identity (runIdentity))
+import Control.Monad (when, unless)
 import Control.Monad.State
 import Control.Monad.Writer
 import Control.Monad.Reader
 import Control.Monad.Except
 import qualified Data.Map
+import Data.List (nub)
+import Data.Maybe (isJust)
 
 import AbsLatte
 import SimplifyExp
@@ -131,6 +134,10 @@ showLoc (Just (line, col)) = "line " ++ sLine ++ ", colum " ++ sCol
   where
     sLine = show line
     sCol = show col
+
+-- Check for duplicates
+noDuplicates :: Eq a => [a] -> Bool
+noDuplicates xs = length xs == length (nub xs)
 
 -- Compare Types
 compareTypes :: Type -> Type -> Bool
@@ -302,8 +309,13 @@ checkStmt (Cond loc cond body) = do
   case condT of
     Bool ma -> do
       (hasRet, _) <- checkStmt body
-      return (hasRet, id)
+      let simpCond = simplifyExp cond
+      let isCertain = isTrue simpCond
+      return (hasRet && isCertain, id)
     _ -> throwError ("Condition of non boolean type, at " ++ showLoc loc)
+    where
+      isTrue (ELitTrue _) = True
+      isTrue _ = False
 
 checkStmt (CondElse loc cond bodyT bodyF) = do
   condT <- checkExpr cond
@@ -311,16 +323,27 @@ checkStmt (CondElse loc cond bodyT bodyF) = do
     Bool ma -> do
       (hasRetT, _) <- checkStmt bodyT
       (hasRetF, _) <- checkStmt bodyF
-      return (hasRetT && hasRetF, id)
+      let simpCond = simplifyExp cond
+      let (ignoreT, ignoreF) = condToIgnore simpCond
+      return ((hasRetT || ignoreT) && (hasRetF || ignoreF), id)
     _ -> throwError ("Condition of non boolean type, at " ++ showLoc loc)
+    where
+      condToIgnore (ELitTrue _) = (False, True)
+      condToIgnore (ELitFalse _) = (True, False)
+      condToIgnore _ = (False, False)
 
 checkStmt (While loc cond body) = do
   condT <- checkExpr cond
   case condT of
     Bool ma -> do
       (hasRet, _) <- checkStmt body
-      return (hasRet, id)
+      let simpCond = simplifyExp cond
+      let isCertain = isTrue simpCond
+      return (hasRet && isCertain, id)
     _ -> throwError ("Condition of non boolean type, at " ++ showLoc loc)
+    where
+      isTrue (ELitTrue _) = True
+      isTrue _ = False
 
 checkStmt (Ret loc expr) = do
   exprT <- checkExpr expr
@@ -363,7 +386,12 @@ checkLValue loc _ = throwError ("Value at left side of assignment isn't L-value,
 -- Declare variable 
 declVar :: Type -> Item -> TCM ChangeEnv
 
-declVar varType (NoInit loc varID) = return (addVar varType varID)
+declVar varType (NoInit loc varID) = do
+  env <- ask
+  let lookupResult = getType env varID
+  let doesExist = isJust lookupResult
+  when doesExist $ throwError ("Declared variable of non unique name (variable's name must be unique inside it's scope), at " ++ showLoc loc)
+  return (addVar varType varID)
 
 declVar varType (Init loc varID exp) = do
   expType <- checkExpr exp
@@ -382,7 +410,8 @@ declVars varType (h:t) = do
 
 checkTopDef :: TopDef -> TCM ()
 checkTopDef (FnDef loc retType funID args body) = do
-  (argsT, insArgs) <- insertArgs args
+  (argsT, argsID, insArgs) <- insertArgs args
+  unless (noDuplicates argsID) $ throwError ("Non unique arguments names, at " ++ showLoc loc)
   let signature = FunctionSignature retType argsT
   let insRetT = setRetType retType
   let insAll = insArgs.insRetT
@@ -393,14 +422,14 @@ checkTopDef (FnDef loc retType funID args body) = do
     else throwError ("Function with non void return type can possibly end without return statement, at " ++ showLoc loc)
 
 
-insertArgs :: [Arg] -> TCM ([Type], ChangeEnv)
+insertArgs :: [Arg] -> TCM ([Type], [Ident],ChangeEnv)
 
-insertArgs [] = return ([], id)
+insertArgs [] = return ([], [], id)
 
 insertArgs ((Arg loc argT argID):t) = do
   let insArg = addVar argT argID
-  (tailT, insT) <- local insArg (insertArgs t)
-  return (argT:tailT, insT.insArg)
+  (tailT, tailID, insT) <- local insArg (insertArgs t)
+  return (argT:tailT, argID:tailID, insT.insArg)
 
 checkTopDefs :: [TopDef] -> TCM ()
 
