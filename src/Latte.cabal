@@ -9,6 +9,7 @@ executable LatteTypeChecker
                      , AbsLatte
                      , LexLatte
                      , ParLatte
+                     , SimplifyExp
   hs-source-dirs:      ., ./Grammar
   build-depends:       base >=4.7 && <5
                      , array ==0.5.4.0

@@ -1,5 +1,4 @@
 -- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-{-# OPTIONS_GHC -i./Grammar #-}
 
 module TypeChecker ( TCMException, executeProgramCheck ) where
 
@@ -11,6 +10,7 @@ import Control.Monad.Except
 import qualified Data.Map
 
 import AbsLatte
+import SimplifyExp
 
 type TypesMap = Data.Map.Map Ident Type
 type StructType = Data.Map.Map Ident Type
