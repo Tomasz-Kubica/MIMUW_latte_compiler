@@ -1,4 +1,5 @@
 -- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -i./Grammar #-}
 
 module TypeChecker ( TCMException, executeProgramCheck ) where
 
@@ -218,14 +219,15 @@ checkExpr (ERel loc expr1 _relOp expr2) = do
       _ -> throwError ("Invalid comparison, at " ++ showLoc loc ++ ". Only values of type boolean, string or integer can be compared")
     else throwError ("Comparison of values of different type, at " ++ showLoc loc)
 
-checkExpr (EAdd loc expr1 _addOp expr2) = do
+checkExpr (EAdd loc expr1 addOp expr2) = do
   expr1T <- checkExpr expr1
   expr2T <- checkExpr expr2
-  case (expr1T, expr2T) of
-    (Int _, Int _) -> return (Int noLoc)
+  case (expr1T, expr2T, addOp) of
+    (Int _, Int _, _) -> return (Int noLoc)
+    (Str _, Str _, Plus _) -> return (Str noLoc)
     _ -> throwError ("Arithmetic operation of non integer values, at " ++ showLoc loc)
 
-checkExpr (EMul loc expr1 _addOp expr2) = do
+checkExpr (EMul loc expr1 _mulOp expr2) = do
   expr1T <- checkExpr expr1
   expr2T <- checkExpr expr2
   case (expr1T, expr2T) of
