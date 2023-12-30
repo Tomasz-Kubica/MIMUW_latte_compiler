@@ -263,7 +263,7 @@ checkAttr loc _ _ = throwError ("Trying to access attribute of non structure, at
 -- Auxiliary function for checkExpr for EApp
 compareArgs :: BNFC'Position -> [Type] -> [Expr] -> TCM ()
 compareArgs loc [] [] = return ()
-compareArgs loc [] (exprH:exprT) = throwError ("Too much arguments in function call, at " ++ showLoc loc)
+compareArgs loc [] (exprH:exprT) = throwError ("Too many arguments in function call, at " ++ showLoc loc)
 compareArgs loc (typesH:typesT) [] = throwError ("Not enough arguments in function call, at " ++ showLoc loc)
 compareArgs loc (typesH:typesT) (exprH:exprT) = do
   exprType <- checkExpr exprH
@@ -286,7 +286,7 @@ checkStmt (Ass loc dest val) = do
   valT <- checkExpr val
   if compareTypes destT valT
     then return (False, id)
-    else throwError ("Wrong type of assigned value, at " ++ showLoc loc ++ show destT ++ " | " ++ show valT)
+    else throwError ("Wrong type of assigned value, at " ++ showLoc loc) -- ++ show destT ++ " | " ++ show valT)
 
 checkStmt (Incr loc varId) = do
   t <- checkExpr (EVar loc varId)
