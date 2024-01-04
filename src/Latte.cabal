@@ -10,6 +10,9 @@ executable LatteTypeChecker
                      , LexLatte
                      , ParLatte
                      , SimplifyExp
+                     , QuadrupleCode
+                     , QuadrupleGeneration
+                     , QuadrupleCodeToBlocks
   hs-source-dirs:      ., ./Grammar
   build-depends:       base >=4.7 && <5
                      , array ==0.5.4.0

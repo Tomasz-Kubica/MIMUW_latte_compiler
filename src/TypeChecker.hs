@@ -14,6 +14,7 @@ import Data.Maybe (isJust)
 
 import AbsLatte
 import SimplifyExp
+import QuadrupleCode
 
 type TypesMap = Data.Map.Map Ident Type
 type StructType = Data.Map.Map Ident Type
@@ -35,12 +36,18 @@ data TCMEnv = TCMEnv {
 
 type ChangeEnv = TCMEnv -> TCMEnv
 
-type TCM a = ExceptT TCMException (ReaderT TCMEnv Identity) a
+data TCMState = TCMState { 
+  stateIdCounter :: Integer
+}
 
-runTCM :: TCM a -> TCMEnv -> Either TCMException a
-runTCM monad env = res
+type TCMWrite = [Quadruple]
+
+type TCM a = ExceptT TCMException (ReaderT TCMEnv (WriterT TCMWrite (StateT TCMState Identity))) a
+
+runTCM :: TCM a -> TCMEnv -> TCMState -> (Either TCMException a, TCMState, TCMWrite)
+runTCM monad env state = (res, state', written)
   where
-    res = runIdentity (runReaderT (runExceptT monad) env)
+    ((res, written), state') = runIdentity (runStateT (runWriterT (runReaderT (runExceptT monad) env)) state)
 
 -- Monad constants
 
@@ -82,6 +89,11 @@ emptyTCMEnv = TCMEnv {
   envReturnType = Void noLoc,
   envStructTypes = Data.Map.empty,
   envFunctions = standardFunctions
+}
+
+emptyTCMState :: TCMState
+emptyTCMState = TCMState {
+  stateIdCounter = 0
 }
 
 -- Access env
@@ -126,6 +138,19 @@ addFun signature fID env = env'
 
 setRetType :: Type -> ChangeEnv
 setRetType t env = env {envReturnType = t}
+
+-- Access state
+getNewId :: TCM Integer
+getNewId = do
+  state <- get
+  let id = stateIdCounter state
+  put (state { stateIdCounter = id + 1 })
+  return id
+
+getTmpRegisterName :: TCM String
+getTmpRegisterName = do
+  id <- getNewId
+  return ("temp_" ++ show id)
 
 -- Show location in code
 showLoc :: BNFC'Position -> String
@@ -453,6 +478,7 @@ checkProg (Program _ topDefs) = do
   checkTopDefs topDefs
 
 executeProgramCheck :: Program -> Either TCMException ()
-executeProgramCheck program = runTCM checkMonad emptyTCMEnv
+executeProgramCheck program = res
   where
     checkMonad = checkProg program
+    (res, state, written) = runTCM checkMonad emptyTCMEnv emptyTCMState
