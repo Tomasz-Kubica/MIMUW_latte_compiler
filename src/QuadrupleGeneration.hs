@@ -12,7 +12,8 @@ import QuadrupleCode
 
 -- Monad -----------------------------------------------------------------------
 
-type TypesMap = Data.Map.Map String TypeQ
+-- Maps variables to their names in quadruple code and their types
+type TypesMap = Data.Map.Map String (String, TypeQ)
 
 data QGMEnv = QGMEnv {
   envVarTypes :: TypesMap,
@@ -47,22 +48,38 @@ getTmpRegisterName = do
   let registerName = "temp_" ++ show id
   return (Register registerName)
 
+getNewVariableQuadName :: QGM String
+getNewVariableQuadName = do
+  id <- getNewId
+  let varName = "var_" ++ show id
+  return varName
+
 getNewLabel :: QGM Label
 getNewLabel = getNewId
 
-addVarType :: String -> TypeQ -> QGMEnv -> QGMEnv
-addVarType varName varType env = env {
-  envVarTypes = Data.Map.insert varName varType (envVarTypes env)
+addVarType :: String -> String ->TypeQ -> QGMEnv -> QGMEnv
+addVarType varName varQuadName varType env = env {
+  envVarTypes = Data.Map.insert varName (varQuadName, varType) (envVarTypes env)
   }
+
+getVarQuadNameAndType :: String -> QGM (String, TypeQ)
+getVarQuadNameAndType varName = do
+  env <- ask
+  let maybeResult = Data.Map.lookup varName (envVarTypes env)
+  let result = unwrapMaybe maybeResult
+  return result
+    where
+      unwrapMaybe (Just x) = x
+      unwrapMaybe Nothing = error "getVarQuadNameAndType: variable not found"
 
 -- Quadruple generation --------------------------------------------------------
 
 generateQuadrupleCodeExp :: Expr -> QGM (Value, TypeQ)
 
 -- Nothing to do just return variable as value
-generateQuadrupleCodeExp (EVar _ varName) = do
-  let expT = IntQ -- TODO: get var type from env
-  return (Register (show varName), expT)
+generateQuadrupleCodeExp (EVar _ (Ident varName)) = do
+  (varQuadName, varType) <- getVarQuadNameAndType varName
+  return (Register varQuadName, varType)
 
 -- Arithmetic expressions
 
@@ -275,18 +292,21 @@ generateQuadrupleCodeStmtsList (stmt:tail) = do
 -- Function for generating code for variable declarations
 generateQuadrupleCodeVarDecl :: TypeQ -> Item -> QGM (QGMEnv -> QGMEnv)
 generateQuadrupleCodeVarDecl varType (NoInit _ (Ident varName)) = do
-  let varRegister = Register (show varName)
+  varQuadName <- getNewVariableQuadName
+  let varRegister = Register varQuadName
   let value = typeToInitVal varType
   tell [Copy varType varRegister value]
-  return (addVarType varName varType)
+  return (addVarType varName varQuadName varType)
     where
       typeToInitVal IntQ = Constant -- TODO: set constant to 0
       typeToInitVal _ = Constant -- TODO: add default values for other types
 
 generateQuadrupleCodeVarDecl varType (Init _ (Ident varName) e) = do
+  varQuadName <- getNewVariableQuadName
+  let varRegister = Register varQuadName
   (v, _) <- generateQuadrupleCodeExp e
-  tell [Copy t (Register (show varName)) v]
-  return (addVarType varName varType)
+  tell [Copy varType varRegister v]
+  return (addVarType varName varQuadName varType)
 
 generateQuadrupleCodeVarDecls :: TypeQ -> [Item] -> QGM (QGMEnv -> QGMEnv)
 generateQuadrupleCodeVarDecls varType [] = return id

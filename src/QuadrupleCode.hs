@@ -5,6 +5,7 @@ module QuadrupleCode where
 data TypeQ
   = IntQ
   | BoolQ 
+  deriving (Eq)
 
 data Value = Register String | Constant
 
@@ -24,6 +25,7 @@ data Quadruple
   | FunctionCall Value TypeQ FunctionName [FunctionArgument]
   | Return TypeQ Value
   | ReturnVoid
+  | Phi TypeQ [(Value, Label)]
 
 data ArithmeticOperator
   = Add
@@ -42,7 +44,7 @@ data CompareOperator
 
 -- SIMPLE BLOCK ----------------------------------------------------------------
 
--- SimpleBlock block_label block_code possible_next_blocks
+-- SimpleBlock           block_label  block_code  possible_next_blocks
 data SimpleBlock = SimpleBlock Label [Quadruple] [Label] 
 
 -- TRANSLATE QUADRUPLE CODE TO LLVM --------------------------------------------

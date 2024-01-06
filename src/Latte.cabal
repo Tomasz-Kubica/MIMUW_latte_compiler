@@ -13,6 +13,7 @@ executable LatteTypeChecker
                      , QuadrupleCode
                      , QuadrupleGeneration
                      , QuadrupleCodeToBlocks
+                     , BlocksToSSA
   hs-source-dirs:      ., ./Grammar
   build-depends:       base >=4.7 && <5
                      , array ==0.5.4.0
