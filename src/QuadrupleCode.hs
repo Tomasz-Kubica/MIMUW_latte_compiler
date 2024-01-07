@@ -8,6 +8,7 @@ data TypeQ
   deriving (Eq)
 
 data Value = Register String | Constant
+  deriving (Eq)
 
 type Label = Integer
 
@@ -25,7 +26,7 @@ data Quadruple
   | FunctionCall Value TypeQ FunctionName [FunctionArgument]
   | Return TypeQ Value
   | ReturnVoid
-  | Phi TypeQ [(Value, Label)]
+  | Phi TypeQ Value [(Value, Label)]
 
 data ArithmeticOperator
   = Add

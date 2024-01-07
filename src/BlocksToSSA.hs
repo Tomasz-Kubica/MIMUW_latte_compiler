@@ -73,7 +73,7 @@ varToPhi :: [Label] -> (String, TypeQ) -> Quadruple
 varToPhi [] _ = error "varToPhi: no previous blocks"
 -- In case there is only one previous block copy variable instead of phi node
 -- varToPhi [onlyLabel] (varName, varType) = Copy varType (Register varName) (Register varName)
-varToPhi prevL (varName, varType) = Phi varType valuesWithLabels
+varToPhi prevL (varName, varType) = Phi varType (Register varName) valuesWithLabels
   where
     varAsValue = Register varName
     valuesWithLabels = map (\label -> (varAsValue, label)) prevL
@@ -234,6 +234,9 @@ makeQuadResultUnique (CompareOperation dest t src1 op src2) = do
 makeQuadResultUnique (FunctionCall dest t name args) = do
   (dest', mapping) <- makeDestUnique dest
   return (FunctionCall dest' t name args, mapping)
+makeQuadResultUnique (Phi t dest values) = do
+  (dest', mapping) <- makeDestUnique dest
+  return (Phi t dest' values, mapping)
 makeQuadResultUnique quad = return (quad, id)
 
 makeDestUnique :: Value -> EliminateMonad (Value, VarToUniqueVarMap -> VarToUniqueVarMap)
@@ -264,7 +267,7 @@ updateBlockPhiNodes label mapping (SimpleBlock l code nextBlocks) = SimpleBlock 
     code' = updateCode code
     updateCode :: [Quadruple] -> [Quadruple]
     updateCode [] = []
-    updateCode (phi@(Phi _ _):tail) = phi':tail'
+    updateCode (phi@Phi {}:tail) = phi':tail'
       where
         phi' = updatePhiNode label mapping phi
         tail' = updateCode tail
@@ -272,7 +275,7 @@ updateBlockPhiNodes label mapping (SimpleBlock l code nextBlocks) = SimpleBlock 
     updateCode notPhiCode = notPhiCode
 
 updatePhiNode :: Label -> VarToUniqueVarMap -> Quadruple -> Quadruple
-updatePhiNode label mapping (Phi t values) = Phi t values'
+updatePhiNode label mapping (Phi t dest values) = Phi t dest values'
   where
     values' = map mapValue values
     mapValue :: (Value, Label) -> (Value, Label)
