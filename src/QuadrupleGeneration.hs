@@ -11,6 +11,7 @@ import qualified Data.Map
 
 import AbsLatte
 import QuadrupleCode
+import SimplifyStmt
 
 -- Monad -----------------------------------------------------------------------
 
@@ -334,7 +335,8 @@ generateQuadrupleCodeStmt (SExp _ e) = do
 generateQuadrupleCodeStmtsList :: [Stmt] -> QGM ()
 generateQuadrupleCodeStmtsList [] = return ()
 generateQuadrupleCodeStmtsList (stmt:tail) = do
-  changeEnv <- generateQuadrupleCodeStmt stmt
+  let simplifiedStmt = simplifyStmt stmt
+  changeEnv <- generateQuadrupleCodeStmt simplifiedStmt
   local changeEnv (generateQuadrupleCodeStmtsList tail)
 
 -- Function for generating code for variable declarations
@@ -384,7 +386,10 @@ funToQuad funResultsMap (FnDef _ retType (Ident name) arguments (Block _ body)) 
     -- We add arg1 = arg1, ... assignments so that arguments behave like other variables (FIXME: this is a hack)
     argumentsSelfAssignments = map (\(t, n) -> Copy t (Register n) (Register n)) argumentsQReplacedNames
     bodyQWithEntryLabelAndArgSelfAss = LabelQ entryLabel : (argumentsSelfAssignments ++ bodyQ)
-    resFunction = Function retTypeQ name argumentsQReplacedNames bodyQWithEntryLabelAndArgSelfAss
+    -- If function return type is void, we add return void at the end of function
+    returnVoid = [ReturnVoid | retTypeQ == VoidQ]
+    finalBody = bodyQWithEntryLabelAndArgSelfAss ++ returnVoid
+    resFunction = Function retTypeQ name argumentsQReplacedNames finalBody
 
     argToTypeName :: Arg -> (TypeQ, String)
     argToTypeName (Arg _ argType (Ident argName)) = (declTypeToTypeQ argType, argName)
