@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use tuple-section" #-}
 
-module BlocksToSSA where
+module BlocksToSSA (blocksToSSA) where
 
 import qualified Data.Map
 import qualified Data.Set

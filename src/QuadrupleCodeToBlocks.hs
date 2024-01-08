@@ -6,12 +6,16 @@ import QuadrupleCode
 -- DIVIDE QUADRUPLE CODE TO BLOCKS ---------------------------------------------
 
 divideQuadrupleCodeToBlocks :: [Quadruple] -> [SimpleBlock]
+-- divideQuadrupleCodeToBlocks quads  = error ("show quadruples: " ++ toShow) -- TODO: remove this line
+--   where
+--     quadStrings = map show quads
+--     toShow = unlines quadStrings
 divideQuadrupleCodeToBlocks [] = []
 divideQuadrupleCodeToBlocks (labelQ@(LabelQ label):tail) = block:divideQuadrupleCodeToBlocks remainingCode
   where
     -- SimpleBlock code is saved without label quadruple
     (remainingCode, block) = findBlock label tail []
-divideQuadrupleCodeToBlocks _ = error "divideQuadrupleCodeToBlocks: first quadruple is not label"
+divideQuadrupleCodeToBlocks _ = error "divideQuadrupleCodeToBlocks: first quadruple is not label" 
 
 --       block_label  code           accumulator    (reaming_code, found_block)
 findBlock :: Label -> [Quadruple] -> [Quadruple] -> ([Quadruple], SimpleBlock)

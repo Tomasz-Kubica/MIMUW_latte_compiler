@@ -1,4 +1,6 @@
-module QuadrupleGeneration () where
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use second" #-}
+module QuadrupleGeneration (funToQuad, declTypeToTypeQ) where
 
 import Control.Monad.Identity
 import Control.Monad.State
@@ -15,9 +17,11 @@ import QuadrupleCode
 -- Maps variables to their names in quadruple code and their types
 type TypesMap = Data.Map.Map String (String, TypeQ)
 
+type ResultTypesMap = Data.Map.Map String TypeQ
+
 data QGMEnv = QGMEnv {
   envVarTypes :: TypesMap,
-  envFunResultTypes :: TypesMap
+  envFunResultTypes :: ResultTypesMap
 }
 
 data QGMState = QGMState {
@@ -32,6 +36,13 @@ runQGM :: QGM a -> QGMEnv -> QGMState -> (a, QGMState, QGMWrite)
 runQGM monad env state = (res, state', written)
   where
     ((res, written), state') = runIdentity (runReaderT (runStateT (runWriterT monad) state) env)
+
+-- Monad constants -------------------------------------------------------------
+
+startQGMState :: QGMState
+startQGMState = QGMState {
+  stateIdCounter = firstFreeLabel
+}
 
 -- Monad utility functions -----------------------------------------------------
 
@@ -87,19 +98,54 @@ generateQuadrupleCodeExp (EAdd _ e1 op e2) = do
   (v1, t1) <- generateQuadrupleCodeExp e1
   (v2, _t2) <- generateQuadrupleCodeExp e2
   tmpRegisterName <- getTmpRegisterName
-  tell [ArithmeticOperation tmpRegisterName t1 v1 Add v2]
+  tell [ArithmeticOperation tmpRegisterName t1 v1 opQ v2]
   return (tmpRegisterName, t1)
+    where
+      opQ = opToQuadOp op
+      opToQuadOp :: AddOp -> ArithmeticOperator
+      opToQuadOp (AbsLatte.Plus _) = QuadrupleCode.Add
+      opToQuadOp (AbsLatte.Minus _) = QuadrupleCode.Sub
+
+generateQuadrupleCodeExp (EMul _ e1 op e2) = do
+  (v1, t1) <- generateQuadrupleCodeExp e1
+  (v2, _t2) <- generateQuadrupleCodeExp e2
+  tmpRegisterName <- getTmpRegisterName
+  tell [ArithmeticOperation tmpRegisterName t1 v1 opQ v2]
+  return (tmpRegisterName, t1)
+    where
+      opQ = opToQuadOp op
+      opToQuadOp :: MulOp -> ArithmeticOperator
+      opToQuadOp (AbsLatte.Times _) = QuadrupleCode.Mul
+      opToQuadOp (AbsLatte.Div _) = QuadrupleCode.Div
+      opToQuadOp (AbsLatte.Mod _) = QuadrupleCode.Mod
+
+
+generateQuadrupleCodeExp (ELitInt _ x) = do
+  return (ConstInt x, IntQ)
+
+-- Function call
+
+generateQuadrupleCodeExp (EApp _ (Ident funName) args) = do
+  env <- ask
+  let resTypeMap = envFunResultTypes env
+  let retType = resTypeMap Data.Map.! funName
+  calculatedArgs <- mapM generateQuadrupleCodeExp args
+  let argsQ = map (\(v, t) -> FunctionArgument t v) calculatedArgs
+  tmpRegisterName <- getTmpRegisterName
+  tell [FunctionCall tmpRegisterName retType funName argsQ]
+  return (tmpRegisterName, retType)
+
 
 -- Boolean expressions
 
 generateQuadrupleCodeExp (ELitTrue _) = do
   tmpRegisterName <- getTmpRegisterName
-  tell [Copy BoolQ tmpRegisterName Constant] -- TODO: set constant to true
+  tell [Copy BoolQ tmpRegisterName (ConstBool True)]
   return (tmpRegisterName, BoolQ)
 
 generateQuadrupleCodeExp (ELitFalse _) = do
   tmpRegisterName <- getTmpRegisterName
-  tell [Copy BoolQ tmpRegisterName Constant] -- TODO: set constant to false
+  tell [Copy BoolQ tmpRegisterName (ConstBool False)]
   return (tmpRegisterName, BoolQ)
 
 generateQuadrupleCodeExp e@EAnd {} = do
@@ -164,10 +210,10 @@ generateBoolExpr e = do
   generateQuadrupleCodeCond e trueL falseL
   tell [
     LabelQ trueL,
-    Copy BoolQ resultRegister Constant, -- TODO: set constant to true
+    Copy BoolQ resultRegister (ConstBool True),
     Jump endL,
     LabelQ falseL,
-    Copy BoolQ resultRegister Constant, -- TODO: set constant to false
+    Copy BoolQ resultRegister (ConstBool False),
     Jump endL,
     LabelQ endL
     ]
@@ -181,6 +227,10 @@ absOpToQuadOp (GE _) = Ge
 absOpToQuadOp (EQU _) = Eq
 absOpToQuadOp (NE _) = Neq
 
+declTypeToTypeQ :: Type -> TypeQ
+declTypeToTypeQ (Int _) = IntQ
+declTypeToTypeQ (Bool _) = BoolQ
+
 generateQuadrupleCodeStmt :: Stmt -> QGM (QGMEnv -> QGMEnv)
 
 generateQuadrupleCodeStmt (Empty _) = return id
@@ -192,29 +242,26 @@ generateQuadrupleCodeStmt (BStmt _ (Block _ block)) = do
 generateQuadrupleCodeStmt (Decl _ declType items) = do
   let typeQ = declTypeToTypeQ declType
   generateQuadrupleCodeVarDecls typeQ items
-  where
-    declTypeToTypeQ (Int _) = IntQ
-    declTypeToTypeQ (Bool _) = BoolQ
 
-generateQuadrupleCodeStmt (Ass _ (EVar _ varName) source) = do
+generateQuadrupleCodeStmt (Ass _ (EVar _ (Ident varName)) source) = do
   (v, t) <- generateQuadrupleCodeExp source
-  tell [Copy t (Register (show varName)) v]
+  (quadName, _) <- getVarQuadNameAndType varName
+  tell [Copy t (Register quadName) v]
   return id
 
-
-generateQuadrupleCodeStmt (Incr _ varName) = do
-  let varType = IntQ -- TODO: get type from env
-  let varRegister = Register (show varName)
+generateQuadrupleCodeStmt (Incr _ (Ident varName)) = do
+  (quadName, varType) <- getVarQuadNameAndType varName
+  let varRegister = Register quadName
   tell [
-    ArithmeticOperation varRegister varType varRegister Add Constant -- TODO: set constant to 1
+    ArithmeticOperation varRegister varType varRegister Add (ConstInt 1)
     ]
   return id
 
-generateQuadrupleCodeStmt (Decr _ varName) = do
-  let varType = IntQ -- TODO: get type from env
-  let varRegister = Register (show varName)
+generateQuadrupleCodeStmt (Decr _ (Ident varName)) = do
+  (quadName, varType) <- getVarQuadNameAndType varName
+  let varRegister = Register quadName
   tell [
-    ArithmeticOperation varRegister varType varRegister Sub Constant -- TODO: set constant to 1
+    ArithmeticOperation varRegister varType varRegister Sub (ConstInt 1)
     ]
   return id
 
@@ -298,8 +345,9 @@ generateQuadrupleCodeVarDecl varType (NoInit _ (Ident varName)) = do
   tell [Copy varType varRegister value]
   return (addVarType varName varQuadName varType)
     where
-      typeToInitVal IntQ = Constant -- TODO: set constant to 0
-      typeToInitVal _ = Constant -- TODO: add default values for other types
+      typeToInitVal IntQ = ConstInt 0
+      typeToInitVal BoolQ = ConstBool False
+      typeToInitVal _ = error "TODO: add default values for other types"
 
 generateQuadrupleCodeVarDecl varType (Init _ (Ident varName) e) = do
   varQuadName <- getNewVariableQuadName
@@ -314,3 +362,29 @@ generateQuadrupleCodeVarDecls varType (item:tail) = do
   changeEnv <- generateQuadrupleCodeVarDecl varType item
   changeEnvTail <- local changeEnv (generateQuadrupleCodeVarDecls varType tail)
   return (changeEnvTail . changeEnv) -- check order of composition
+
+
+-- GENERATE QUADRUPLE CODE FOR FUNCTION ----------------------------------------
+
+funToQuad :: ResultTypesMap -> TopDef -> Function
+funToQuad funResultsMap (FnDef _ retType (Ident name) arguments (Block _ body)) = resFunction
+  where
+    retTypeQ = declTypeToTypeQ retType
+    argumentsQ = map argToTypeName arguments
+    argumentsMappingList = map (\(t, n) -> (n, (nameToArgName n, t))) argumentsQ
+    argumentsMapping = Data.Map.fromList argumentsMappingList
+    argumentsQReplacedNames = map (\(t, n) -> (t, nameToArgName n)) argumentsQ
+    bodyQMonad = generateQuadrupleCodeStmtsList body
+    startQGMEnv = QGMEnv {
+      envVarTypes = argumentsMapping,
+      envFunResultTypes = funResultsMap
+      }
+    (_, _, bodyQ) = runQGM bodyQMonad startQGMEnv startQGMState
+    bodyQWithEntryLabel = LabelQ entryLabel : bodyQ
+    resFunction = Function retTypeQ name argumentsQReplacedNames bodyQWithEntryLabel
+
+    argToTypeName :: Arg -> (TypeQ, String)
+    argToTypeName (Arg _ argType (Ident argName)) = (declTypeToTypeQ argType, argName)
+
+    nameToArgName :: String -> String
+    nameToArgName name = "argument_" ++ name
