@@ -45,11 +45,15 @@ quadrupleToLLVM (ConditionalJump condition trueLabel falseLabel) = addIndent llv
 quadrupleToLLVM (FunctionCall dest t name args) = addIndent llvmCode
   where
     llvmDest = valueToLLVM dest
+    -- Void function call can't have destination
+    llvmDestToUse = if t == VoidQ
+      then ""
+      else llvmDest ++ " = "
     llvmType = typeToLLVM t
     llvmName = "@" ++ name
     llvmArgs = map (\(FunctionArgument t v) -> typeToLLVM t ++ " " ++ valueToLLVM v) args
     llvmArgsString = joinWithComas llvmArgs
-    llvmCode = llvmDest ++ " = call " ++ llvmType ++ " " ++ llvmName ++ "(" ++ llvmArgsString ++ ")"
+    llvmCode = llvmDestToUse ++ "call " ++ llvmType ++ " " ++ llvmName ++ "(" ++ llvmArgsString ++ ")"
 
 quadrupleToLLVM (Return t value) = addIndent llvmCode
   where
@@ -71,6 +75,7 @@ quadrupleToLLVM (Phi t dest values) = addIndent llvmCode
 typeToLLVM :: TypeQ -> String
 typeToLLVM IntQ = "i32"
 typeToLLVM BoolQ = "i1"
+typeToLLVM VoidQ = "void"
 
 -- Convert arithmetic operator from quadruple code to LLVM operation
 arithmeticOperatorToLLVM :: ArithmeticOperator -> String

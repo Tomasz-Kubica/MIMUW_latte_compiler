@@ -230,6 +230,7 @@ absOpToQuadOp (NE _) = Neq
 declTypeToTypeQ :: Type -> TypeQ
 declTypeToTypeQ (Int _) = IntQ
 declTypeToTypeQ (Bool _) = BoolQ
+declTypeToTypeQ (Void _) = VoidQ
 
 generateQuadrupleCodeStmt :: Stmt -> QGM (QGMEnv -> QGMEnv)
 
@@ -380,8 +381,10 @@ funToQuad funResultsMap (FnDef _ retType (Ident name) arguments (Block _ body)) 
       envFunResultTypes = funResultsMap
       }
     (_, _, bodyQ) = runQGM bodyQMonad startQGMEnv startQGMState
-    bodyQWithEntryLabel = LabelQ entryLabel : bodyQ
-    resFunction = Function retTypeQ name argumentsQReplacedNames bodyQWithEntryLabel
+    -- We add arg1 = arg1, ... assignments so that arguments behave like other variables (FIXME: this is a hack)
+    argumentsSelfAssignments = map (\(t, n) -> Copy t (Register n) (Register n)) argumentsQReplacedNames
+    bodyQWithEntryLabelAndArgSelfAss = LabelQ entryLabel : (argumentsSelfAssignments ++ bodyQ)
+    resFunction = Function retTypeQ name argumentsQReplacedNames bodyQWithEntryLabelAndArgSelfAss
 
     argToTypeName :: Arg -> (TypeQ, String)
     argToTypeName (Arg _ argType (Ident argName)) = (declTypeToTypeQ argType, argName)

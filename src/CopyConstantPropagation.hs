@@ -41,8 +41,8 @@ isQuadrupleAssignment (Copy _ (Register dest) src) = (True, Data.Map.insert dest
 isQuadrupleAssignment (Phi _ (Register dest) values) = (allEqual, propagation)
   where
     onlyValues = map fst values
-    allEqual = all (== head onlyValues) onlyValues
     firstValue = head onlyValues
+    allEqual = all (== firstValue) onlyValues
     propagation = if allEqual
       then
         -- If all values are equal we treat it as a copy with first value as source (first == all)
@@ -83,6 +83,7 @@ applyMappingToValue mapping (Register name) = newValue
   where
     maybeNewValue = Data.Map.lookup name mapping
     newValue = case maybeNewValue of
-      Just v -> v
+      -- If mapping was successful we have to check if the new value wasn't already mapped to something else
+      Just v -> applyMappingToValue mapping v
       Nothing -> Register name
 applyMappingToValue _ other = other

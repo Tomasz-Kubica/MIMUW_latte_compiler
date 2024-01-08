@@ -13,10 +13,11 @@ import ParLatte
 import TypeChecker
 import Compiler
 
-compileProgram :: Program -> IO ()
-compileProgram program = do
+compileProgram :: Program -> FilePath -> IO ()
+compileProgram program file = do
   let llvmCode = programToLLVM program
   putStrLn llvmCode
+  codeToMonad llvmCode file
 
 checkFile :: String -> IO ()
 checkFile file = do
@@ -29,7 +30,32 @@ checkFile file = do
       let typeCheckResult = executeProgramCheck program
       case typeCheckResult of
         Left typeCheckErr -> hPutStrLn stderr "ERROR" >> putStrLn ("Err from file " ++ file ++ ": " ++ typeCheckErr) >> exitFailure
-        Right _ -> hPutStrLn stderr "OK" >> compileProgram program
+        Right _ -> hPutStrLn stderr "OK" >> compileProgram program file
+
+codeToMonad :: String -> FilePath -> IO ()
+codeToMonad code sourceFile = do
+  putStr ("Compiling: " ++ sourceFile ++ "\n")
+  let dir = takeDirectory sourceFile
+  let baseName = takeBaseName sourceFile
+  let llvmFile = replaceExtension sourceFile "ll"
+  let unlinkedFile = dir </> ("unlinked_" ++ baseName) <.> "bc"
+  let linkedFile = replaceExtension sourceFile "bc"
+  let runtimeFile = "lib/runtime.bc"
+  -- Save generated code to llvm file.
+  writeFile llvmFile code
+  -- Compile generated llvm file.
+  let llvmProc1 = proc "llvm-as" ["-o", unlinkedFile, llvmFile]
+  (_, _, _, llvmHandle1) <- createProcess llvmProc1
+  waitForProcess llvmHandle1
+  -- Link compiled file with runtime library
+  let llvmProc2 = proc "llvm-link" ["-o", linkedFile, unlinkedFile, runtimeFile]
+  (_, _, _, llvmHandle2) <- createProcess llvmProc2
+  waitForProcess llvmHandle2
+  -- Remove unlinked file
+  let rmProc = proc "rm" [unlinkedFile]
+  (_, _, _, rmHandle) <- createProcess rmProc
+  waitForProcess rmHandle
+  return ()
 
 usage :: IO ()
 usage = do

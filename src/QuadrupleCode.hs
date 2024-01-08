@@ -5,6 +5,7 @@ module QuadrupleCode where
 data TypeQ
   = IntQ
   | BoolQ 
+  | VoidQ
   deriving (Eq, Show)
 
 data Value 

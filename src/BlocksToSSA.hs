@@ -218,7 +218,15 @@ applyMappingToQuad quad _ = quad
 
 
 applyMappingToUsedValue :: Value -> VarToUniqueVarMap -> Value
-applyMappingToUsedValue (Register name) mapping = Register (mapping Data.Map.! name)
+applyMappingToUsedValue (Register name) mapping = Register nameToUse
+  where
+    nameFromMapping = Data.Map.lookup name mapping
+    nameToUse = case nameFromMapping of
+      -- Use name from mapping
+      Just n -> n
+      -- If there is no name in mapping then this must be use of an function argument (TODO: Is this true or am I just too tired?)
+      Nothing -> name -- TODO: Why this is already argument name?
+
 applyMappingToUsedValue value _ = value
 
 makeQuadResultUnique :: Quadruple -> EliminateMonad (Quadruple, VarToUniqueVarMap -> VarToUniqueVarMap)
@@ -242,7 +250,7 @@ makeQuadResultUnique quad = return (quad, id)
 makeDestUnique :: Value -> EliminateMonad (Value, VarToUniqueVarMap -> VarToUniqueVarMap)
 makeDestUnique (Register name) = do
   id <- getNextID
-  let newName = "u" ++ name ++ "_" ++ show id
+  let newName = "u"++ show id ++ "_" ++ name 
   return (Register newName, Data.Map.insert name newName)
 makeDestUnique _ = error "makeDestUnique: destination is not register"
 
