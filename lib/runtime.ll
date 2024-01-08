@@ -7,16 +7,15 @@ declare i32 @printf(i8*, ...)
 declare i32 @scanf(i8*, ...)
 declare i32 @puts(i8*)
 
+; For string concatenation
+declare i64 @strlen(i8*)
+declare i8* @malloc(i64)
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i32, i1)
+
 define void @printInt(i32 %x) {
        %t0 = getelementptr [4 x i8], [4 x i8]* @dnl, i32 0, i32 0
        call i32 (i8*, ...) @printf(i8* %t0, i32 %x) 
        ret void
-}
-
-define void @printDouble(double %x) {
-entry: %t0 = getelementptr [6 x i8], [6 x i8]* @fnl, i32 0, i32 0
-	call i32 (i8*, ...) @printf(i8* %t0, double %x) 
-	ret void
 }
 
 define void @printString(i8* %s) {
@@ -32,10 +31,18 @@ entry:	%res = alloca i32
 	ret i32 %t2
 }
 
-define double @readDouble() {
-entry:	%res = alloca double
-        %t1 = getelementptr [4 x i8],[4 x i8]* @lf, i32 0, i32 0
-	call i32 (i8*, ...) @scanf(i8* %t1, double* %res)
-	%t2 = load double, double* %res
-	ret double %t2
+define i8* @concat(i8* %str1, i8* %str2) {
+entry:
+  %str1_len = call i64 @strlen(i8* %str1)
+  %str2_len = call i64 @strlen(i8* %str2)
+  %total_len = add i64 %str1_len, %str2_len
+  %new_str = call i8* @malloc(i64 %total_len)
+  
+  %str1_end = getelementptr i8, i8* %str1, i64 %str1_len
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %new_str, i8* %str1, i64 %str1_len, i32 1, i1 false)
+  
+  %new_str_end = getelementptr i8, i8* %new_str, i64 %str1_len
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %new_str_end, i8* %str2, i64 %str2_len, i32 1, i1 false)
+  
+  ret i8* %new_str
 }

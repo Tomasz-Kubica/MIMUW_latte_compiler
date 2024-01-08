@@ -6,12 +6,14 @@ data TypeQ
   = IntQ
   | BoolQ 
   | VoidQ
+  | StringQ
   deriving (Eq, Show)
 
 data Value 
   = Register String 
   | ConstInt Integer 
   | ConstBool Bool
+  -- | ConstString String -- global string name
   deriving (Eq, Show)
 
 type Label = Integer
@@ -39,6 +41,7 @@ data Quadruple
   | Return TypeQ Value
   | ReturnVoid
   | Phi TypeQ Value [(Value, Label)]
+  | ConstString Value String Integer -- destination, name, length
   deriving (Show)
 
 data ArithmeticOperator
@@ -65,7 +68,8 @@ data SimpleBlock = SimpleBlock Label [Quadruple] [Label]
 
 -- FUNCTION --------------------------------------------------------------------
 
-data Function = Function TypeQ FunctionName [(TypeQ, String)] [Quadruple]
+--                    ret_type name         args              code        string_constants
+data Function = Function TypeQ FunctionName [(TypeQ, String)] [Quadruple] [(String, String)]
 
 -- TRANSLATE QUADRUPLE CODE TO LLVM --------------------------------------------
 -- TODO: implement

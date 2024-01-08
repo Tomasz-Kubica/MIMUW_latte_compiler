@@ -22,11 +22,13 @@ type ResultTypesMap = Data.Map.Map String TypeQ
 
 data QGMEnv = QGMEnv {
   envVarTypes :: TypesMap,
-  envFunResultTypes :: ResultTypesMap
+  envFunResultTypes :: ResultTypesMap,
+  functionName :: String -- Used to generate unique global string literals names
 }
 
 data QGMState = QGMState {
-  stateIdCounter :: Integer
+  stateIdCounter :: Integer,
+  stringLiterals :: [(String, String)] -- (name, value)
 }
 
 type QGMWrite = [Quadruple]
@@ -42,7 +44,8 @@ runQGM monad env state = (res, state', written)
 
 startQGMState :: QGMState
 startQGMState = QGMState {
-  stateIdCounter = firstFreeLabel
+  stateIdCounter = firstFreeLabel,
+  stringLiterals = []
 }
 
 -- Monad utility functions -----------------------------------------------------
@@ -84,6 +87,16 @@ getVarQuadNameAndType varName = do
       unwrapMaybe (Just x) = x
       unwrapMaybe Nothing = error "getVarQuadNameAndType: variable not found"
 
+addStringConstant :: String -> String -> QGM ()
+addStringConstant name value = do
+  state <- get
+  let stringLiteralsList = stringLiterals state
+  let newStringLiteralsList = (name, value) : stringLiteralsList
+  put (state { stringLiterals = newStringLiteralsList })
+
+getCurrentFunctionName :: QGM String
+getCurrentFunctionName = asks functionName
+
 -- Quadruple generation --------------------------------------------------------
 
 generateQuadrupleCodeExp :: Expr -> QGM (Value, TypeQ)
@@ -123,6 +136,18 @@ generateQuadrupleCodeExp (EMul _ e1 op e2) = do
 
 generateQuadrupleCodeExp (ELitInt _ x) = do
   return (ConstInt x, IntQ)
+
+-- String literals
+
+generateQuadrupleCodeExp (EString _ s) = do
+  tmpRegisterName <- getTmpRegisterName
+  let Register registerName = tmpRegisterName
+  functionName <- getCurrentFunctionName
+  let constantName = "string_" ++ registerName ++ "_" ++ functionName
+  let stringLength = toInteger (length s) + 1 -- +1 for null terminator
+  addStringConstant constantName s
+  tell [ConstString tmpRegisterName constantName stringLength]
+  return (tmpRegisterName, StringQ)
 
 -- Function call
 
@@ -232,6 +257,7 @@ declTypeToTypeQ :: Type -> TypeQ
 declTypeToTypeQ (Int _) = IntQ
 declTypeToTypeQ (Bool _) = BoolQ
 declTypeToTypeQ (Void _) = VoidQ
+declTypeToTypeQ (Str _) = StringQ
 
 generateQuadrupleCodeStmt :: Stmt -> QGM (QGMEnv -> QGMEnv)
 
@@ -380,16 +406,18 @@ funToQuad funResultsMap (FnDef _ retType (Ident name) arguments (Block _ body)) 
     bodyQMonad = generateQuadrupleCodeStmtsList body
     startQGMEnv = QGMEnv {
       envVarTypes = argumentsMapping,
-      envFunResultTypes = funResultsMap
+      envFunResultTypes = funResultsMap,
+      functionName = name
       }
-    (_, _, bodyQ) = runQGM bodyQMonad startQGMEnv startQGMState
+    (_, endState, bodyQ) = runQGM bodyQMonad startQGMEnv startQGMState
     -- We add arg1 = arg1, ... assignments so that arguments behave like other variables (FIXME: this is a hack)
     argumentsSelfAssignments = map (\(t, n) -> Copy t (Register n) (Register n)) argumentsQReplacedNames
     bodyQWithEntryLabelAndArgSelfAss = LabelQ entryLabel : (argumentsSelfAssignments ++ bodyQ)
     -- If function return type is void, we add return void at the end of function
     returnVoid = [ReturnVoid | retTypeQ == VoidQ]
     finalBody = bodyQWithEntryLabelAndArgSelfAss ++ returnVoid
-    resFunction = Function retTypeQ name argumentsQReplacedNames finalBody
+    constDeclarations = stringLiterals endState
+    resFunction = Function retTypeQ name argumentsQReplacedNames finalBody constDeclarations
 
     argToTypeName :: Arg -> (TypeQ, String)
     argToTypeName (Arg _ argType (Ident argName)) = (declTypeToTypeQ argType, argName)

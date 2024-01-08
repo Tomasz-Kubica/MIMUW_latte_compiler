@@ -9,6 +9,12 @@ quadrupleToLLVM :: Quadruple -> String
 
 quadrupleToLLVM (Copy {}) = error "quadrupleToLLVM: Final code should not contain Copy quadruples"
 
+-- Special case for strings, strings addition is concatenation
+quadrupleToLLVM (ArithmeticOperation dest StringQ v1 op v2) = quadrupleToLLVM callConcatQuadruple
+  where
+    -- Call concat function
+    callConcatQuadruple = FunctionCall dest StringQ "concat" [FunctionArgument StringQ v1, FunctionArgument StringQ v2]
+
 quadrupleToLLVM (ArithmeticOperation dest t v1 op v2) = addIndent llvmCode
   where
     llvmDest = valueToLLVM dest
@@ -71,11 +77,19 @@ quadrupleToLLVM (Phi t dest values) = addIndent llvmCode
     llvmValuesString = joinWithComas llvmValues
     llvmCode = llvmDest ++ " = phi " ++ llvmType ++ " " ++ llvmValuesString
 
+quadrupleToLLVM (ConstString dest name length) = addIndent llvmCode
+  where
+    llvmDest = valueToLLVM dest
+    llvmName = "@." ++ name
+    llvmLength = show length
+    llvmCode = llvmDest ++ " = getelementptr [" ++ llvmLength ++ " x i8], [" ++ llvmLength ++ " x i8]* " ++ llvmName ++ ", i32 0, i32 0"
+
 -- Convert type from quadruple code to its LLVM equivalent
 typeToLLVM :: TypeQ -> String
 typeToLLVM IntQ = "i32"
 typeToLLVM BoolQ = "i1"
 typeToLLVM VoidQ = "void"
+typeToLLVM StringQ = "i8*"
 
 -- Convert arithmetic operator from quadruple code to LLVM operation
 arithmeticOperatorToLLVM :: ArithmeticOperator -> String
@@ -108,19 +122,29 @@ labelToLLVM label = "LABEL" ++ show label
 -- FUNCTION TO LLVM ------------------------------------------------------------
 
 functionToLLVM :: Function -> String
-functionToLLVM (Function t name args body) = llvmCode
+functionToLLVM (Function t name args body stringLiterals) = llvmCode
   where
     llvmType = typeToLLVM t
     llvmBody = codeToLLVM body
     llvmArgs = map (\(t, name) -> typeToLLVM t ++ " %" ++ name) args
     llvmArgsString = joinWithComas llvmArgs
     llvmHeader = "define " ++ llvmType ++ " @" ++ name ++ "(" ++ llvmArgsString ++ ") {"
-    llvmCode = unlines [llvmHeader, llvmBody, "}"]
+    llvmStringLiterals = map stringLiteralToLLVM stringLiterals
+    llvmCode = unlines (llvmStringLiterals ++ [llvmHeader, llvmBody, "}"])
 
 codeToLLVM :: [Quadruple] -> String
 codeToLLVM code = unlines llvmCode
   where
     llvmCode = map quadrupleToLLVM code
+
+stringLiteralToLLVM :: (String, String) -> String
+stringLiteralToLLVM (name, value) = llvmCode
+  where
+    stringLength = length value + 1 -- +1 for null terminator
+    constName = "@." ++ name
+    valueWithNull = value ++ "\00"
+    llvmCode = constName ++ " = private constant [" ++ show stringLength ++ " x i8] c\"" ++ valueWithNull ++ "\""
+  -- @.str = private constant [15 x i8] c"hello, world!\0A\00"
 
 -- UTILS -----------------------------------------------------------------------
 

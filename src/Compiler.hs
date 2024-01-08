@@ -11,7 +11,7 @@ import BlocksToSSA
 import CopyConstantPropagation
 import QuadrupleToLLVM
 
--- COMPILE PROGRAM ------------------------------------------------------------_
+-- COMPILE PROGRAM -------------------------------------------------------------
 
 programToLLVM :: Program -> String
 programToLLVM (Program _ topDefs) = programLLVM'
@@ -41,7 +41,7 @@ processQuadrupleCode quadruples = quadruples''
 
 -- Call processQuadrupleCode on function's body
 processFunctionQuadrupleCode :: Function -> Function
-processFunctionQuadrupleCode (Function t name args quadruples) = Function t name args quadruples'
+processFunctionQuadrupleCode (Function t name args quadruples stringLiterals) = Function t name args quadruples' stringLiterals
   where
     quadruples' = processQuadrupleCode quadruples
 
