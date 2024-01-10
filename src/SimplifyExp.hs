@@ -45,7 +45,9 @@ simplifyExp exp@(ERel _ e1 op e2) = simplified
       (ELitInt _ v1, GE _, ELitInt _ v2) -> boolToLit (v1 >= v2)
       (ELitInt _ v1, EQU _, ELitInt _ v2) -> boolToLit (v1 == v2)
       (ELitInt _ v1, NE _, ELitInt _ v2) -> boolToLit (v1 /= v2)
-      (EVar _ id1, EQU _, EVar _ id2) -> boolToLit (id1 == id2) -- comparing variable with itself
+      (EVar _ id1, EQU _, EVar _ id2) -> if id1 == id2 
+        then boolToLit True -- comparing variable with itself
+        else exp -- Different variables, nothing to simplify
       _ -> exp
 
 simplifyExp exp@(Not _ e) = simplified

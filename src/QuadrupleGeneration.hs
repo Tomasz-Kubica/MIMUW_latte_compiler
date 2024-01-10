@@ -12,6 +12,7 @@ import qualified Data.Map
 import AbsLatte
 import QuadrupleCode
 import SimplifyStmt
+import RemoveDeadQuadruples
 
 -- Monad -----------------------------------------------------------------------
 
@@ -137,6 +138,11 @@ generateQuadrupleCodeExp (EMul _ e1 op e2) = do
 generateQuadrupleCodeExp (ELitInt _ x) = do
   return (ConstInt x, IntQ)
 
+generateQuadrupleCodeExp (Neg _ x) = generateQuadrupleCodeExp (EMul Nothing minusOne operation x)
+  where
+    minusOne = ELitInt Nothing (-1)
+    operation = Times Nothing
+
 -- String literals
 
 generateQuadrupleCodeExp (EString _ s) = do
@@ -226,6 +232,10 @@ generateQuadrupleCodeCond (ELitTrue _) trueL falseL = do
 
 generateQuadrupleCodeCond (ELitFalse _) trueL falseL = do
   tell [Jump falseL]
+
+generateQuadrupleCodeCond otherExp trueL falseL = do
+  (v, _) <- generateQuadrupleCodeExp otherExp
+  tell [ ConditionalJump v trueL falseL ]
 
 generateBoolExpr :: Expr -> QGM Value
 generateBoolExpr e = do
@@ -357,16 +367,31 @@ generateQuadrupleCodeStmt (SExp _ e) = do
   return id
 
 
--- Function for generating code for statements lists
 generateQuadrupleCodeStmtsList :: [Stmt] -> QGM ()
-generateQuadrupleCodeStmtsList [] = return ()
-generateQuadrupleCodeStmtsList (stmt:tail) = do
+generateQuadrupleCodeStmtsList stmts = generateQuadrupleCodeStmtsListPostSimplify stmts''
+  where
+    stmts' = map simplifyStmt stmts
+    stmts'' = removeDeadStmts stmts'
+
+-- Function for generating code for statements lists
+generateQuadrupleCodeStmtsListPostSimplify :: [Stmt] -> QGM ()
+generateQuadrupleCodeStmtsListPostSimplify [] = return ()
+generateQuadrupleCodeStmtsListPostSimplify (stmt:tail) = do
   let simplifiedStmt = simplifyStmt stmt
   changeEnv <- generateQuadrupleCodeStmt simplifiedStmt
-  local changeEnv (generateQuadrupleCodeStmtsList tail)
+  local changeEnv (generateQuadrupleCodeStmtsListPostSimplify tail)
 
 -- Function for generating code for variable declarations
 generateQuadrupleCodeVarDecl :: TypeQ -> Item -> QGM (QGMEnv -> QGMEnv)
+
+-- Special case for string, should be initialize with "" (empty string)
+generateQuadrupleCodeVarDecl StringQ (NoInit _ (Ident varName)) = do
+  varQuadName <- getNewVariableQuadName
+  let varRegister = Register varQuadName
+  (stringLoc, _) <- generateQuadrupleCodeExp (EString Nothing "")
+  tell [ Copy StringQ varRegister stringLoc]
+  return (addVarType varName varQuadName StringQ)
+
 generateQuadrupleCodeVarDecl varType (NoInit _ (Ident varName)) = do
   varQuadName <- getNewVariableQuadName
   let varRegister = Register varQuadName
@@ -410,9 +435,10 @@ funToQuad funResultsMap (FnDef _ retType (Ident name) arguments (Block _ body)) 
       functionName = name
       }
     (_, endState, bodyQ) = runQGM bodyQMonad startQGMEnv startQGMState
+    bodyQNoDead = removeDeadQuadruples bodyQ
     -- We add arg1 = arg1, ... assignments so that arguments behave like other variables (FIXME: this is a hack)
     argumentsSelfAssignments = map (\(t, n) -> Copy t (Register n) (Register n)) argumentsQReplacedNames
-    bodyQWithEntryLabelAndArgSelfAss = LabelQ entryLabel : (argumentsSelfAssignments ++ bodyQ)
+    bodyQWithEntryLabelAndArgSelfAss = LabelQ entryLabel : (argumentsSelfAssignments ++ bodyQNoDead)
     -- If function return type is void, we add return void at the end of function
     returnVoid = [ReturnVoid | retTypeQ == VoidQ]
     finalBody = bodyQWithEntryLabelAndArgSelfAss ++ returnVoid

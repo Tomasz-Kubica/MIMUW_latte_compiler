@@ -69,6 +69,9 @@ quadrupleToLLVM (Return t value) = addIndent llvmCode
 
 quadrupleToLLVM ReturnVoid = addIndent "ret void"
 
+-- Special case for Void, it is unhallowed and unnecessary
+quadrupleToLLVM (Phi VoidQ _ _) = ""
+
 quadrupleToLLVM (Phi t dest values) = addIndent llvmCode
   where
     llvmDest = valueToLLVM dest

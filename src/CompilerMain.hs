@@ -16,7 +16,7 @@ import Compiler
 compileProgram :: Program -> FilePath -> IO ()
 compileProgram program file = do
   let llvmCode = programToLLVM program
-  putStrLn llvmCode
+  -- putStrLn llvmCode
   codeToMonad llvmCode file
 
 checkFile :: String -> IO ()

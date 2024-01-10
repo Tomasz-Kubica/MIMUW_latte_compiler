@@ -42,6 +42,7 @@ executable LatteCompiler
                      , QuadrupleToLLVM
                      , LatteStdLibFunctions
                      , SimplifyStmt
+                     , RemoveDeadQuadruples
   hs-source-dirs:      ., ./Grammar
   build-depends:       base >=4.7 && <5
                      , array ==0.5.4.0
