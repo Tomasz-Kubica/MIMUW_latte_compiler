@@ -2,6 +2,7 @@
 @fnl = internal constant [6 x i8] c"%.1f\0A\00"
 @d   = internal constant [3 x i8] c"%d\00"	
 @lf  = internal constant [4 x i8] c"%lf\00"	
+@s  = internal constant [3 x i8] c"%s\00"	
 
 declare i32 @printf(i8*, ...) 
 declare i32 @scanf(i8*, ...)
@@ -14,22 +15,32 @@ declare i64 @strcat(i8*, i8*)
 declare i8* @malloc(i64)
 
 define void @printInt(i32 %x) {
-       %t0 = getelementptr [4 x i8], [4 x i8]* @dnl, i32 0, i32 0
-       call i32 (i8*, ...) @printf(i8* %t0, i32 %x) 
-       ret void
-}
-
-define void @printString(i8* %s) {
-entry:  call i32 @puts(i8* %s)
-	ret void
+  %t0 = getelementptr [4 x i8], [4 x i8]* @dnl, i32 0, i32 0
+  call i32 (i8*, ...) @printf(i8* %t0, i32 %x) 
+  ret void
 }
 
 define i32 @readInt() {
-entry:	%res = alloca i32
-        %t1 = getelementptr [3 x i8], [3 x i8]* @d, i32 0, i32 0
+entry:	
+  %res = alloca i32
+  %t1 = getelementptr [3 x i8], [3 x i8]* @d, i32 0, i32 0
 	call i32 (i8*, ...) @scanf(i8* %t1, i32* %res)
 	%t2 = load i32, i32* %res
 	ret i32 %t2
+}
+
+define void @printString(i8* %s) {
+entry:  
+  call i32 @puts(i8* %s)
+	ret void
+}
+
+define i8* @readString() {
+  entry:
+    %res = call i8* @malloc(i64 420)
+    %pattern = getelementptr [3 x i8], [3 x i8]* @s, i32 0, i32 0
+	  call i32 (i8*, ...) @scanf(i8* %pattern, i8* %res)
+    ret i8* %res
 }
 
 define i8* @concat(i8* %str1, i8* %str2) {
