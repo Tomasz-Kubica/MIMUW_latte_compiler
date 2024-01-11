@@ -65,11 +65,12 @@ data CompareOperator
 
 -- SimpleBlock           block_label  block_code  possible_next_blocks
 data SimpleBlock = SimpleBlock Label [Quadruple] [Label] 
-
+  deriving (Show)
 -- FUNCTION --------------------------------------------------------------------
 
 --                    ret_type name         args              code        string_constants
 data Function = Function TypeQ FunctionName [(TypeQ, String)] [Quadruple] [(String, String)]
+  deriving (Show)
 
 -- TRANSLATE QUADRUPLE CODE TO LLVM --------------------------------------------
 -- TODO: implement

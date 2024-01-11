@@ -104,13 +104,14 @@ addVarsToPhi :: Label -> [VarWithType] -> BlockInfo -> BlockInfo
 addVarsToPhi label newVars blockInfo = newBlockInfo
   where
     oldPrevBlocks = previousBlocks blockInfo
-    newPrevBlocks = label:oldPrevBlocks
+    newPrevBlocks = addPrevBlock label oldPrevBlocks
     oldPhiVars = phiVariable blockInfo
     newPhiVars = addVars newVars oldPhiVars
     newBlockInfo = blockInfo {
       previousBlocks = newPrevBlocks,
       phiVariable = newPhiVars
     }
+
     addVars :: [VarWithType] -> [VarWithType] -> [VarWithType]
     addVars new old = if null oldPrevBlocks
       then
@@ -119,6 +120,13 @@ addVarsToPhi label newVars blockInfo = newBlockInfo
       else
         -- Return common variables from new and old
         new `intersect` old
+    
+    addPrevBlock :: Label -> [Label] -> [Label]
+    addPrevBlock label prevBlocks = if label `elem` prevBlocks
+      then
+        prevBlocks
+      else
+        label:prevBlocks
 
 -- Get all vars from BlockInfo
 getAllVars :: BlockInfo -> [VarWithType]
@@ -250,7 +258,7 @@ makeQuadResultUnique quad = return (quad, id)
 makeDestUnique :: Value -> EliminateMonad (Value, VarToUniqueVarMap -> VarToUniqueVarMap)
 makeDestUnique (Register name) = do
   id <- getNextID
-  let newName = "u"++ show id ++ "_" ++ name 
+  let newName = "u"++ show id ++ "_" ++ name
   return (Register newName, Data.Map.insert name newName)
 makeDestUnique _ = error "makeDestUnique: destination is not register"
 
@@ -260,6 +268,8 @@ updateAllPhiNodes label mapping = do
   state <- get
   let blocksM = blocksMap state
   let SimpleBlock _ _ nextBlocksLabels = blocksM Data.Map.! label
+  -- let maybeNextBlocks = map (`Data.Map.lookup` blocksM) nextBlocksLabels
+  -- let nextBlocks = maybeBlocksToBlocks maybeNextBlocks
   let nextBlocks = map (blocksM Data.Map.!) nextBlocksLabels
   let nextBlocks' = map (updateBlockPhiNodes label mapping) nextBlocks
   let blocksM' = foldl insertBlock blocksM nextBlocks'
@@ -268,6 +278,11 @@ updateAllPhiNodes label mapping = do
     where
       insertBlock :: BlocksMap -> SimpleBlock -> BlocksMap
       insertBlock blocks block@(SimpleBlock l _ _) = Data.Map.insert l block blocks
+
+      -- maybeBlocksToBlocks :: [Maybe SimpleBlock] -> [SimpleBlock]
+      -- maybeBlocksToBlocks [] = []
+      -- maybeBlocksToBlocks (Just block:tail) = block:maybeBlocksToBlocks tail
+      -- maybeBlocksToBlocks (Nothing:tail) = maybeBlocksToBlocks tail
 
 updateBlockPhiNodes :: Label -> VarToUniqueVarMap -> SimpleBlock -> SimpleBlock
 updateBlockPhiNodes label mapping (SimpleBlock l code nextBlocks) = SimpleBlock l code' nextBlocks
