@@ -9,8 +9,9 @@ declare i32 @puts(i8*)
 
 ; For string concatenation
 declare i64 @strlen(i8*)
+declare i64 @strcpy(i8*, i8*)
+declare i64 @strcat(i8*, i8*)
 declare i8* @malloc(i64)
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i32, i1)
 
 define void @printInt(i32 %x) {
        %t0 = getelementptr [4 x i8], [4 x i8]* @dnl, i32 0, i32 0
@@ -35,14 +36,12 @@ define i8* @concat(i8* %str1, i8* %str2) {
 entry:
   %str1_len = call i64 @strlen(i8* %str1)
   %str2_len = call i64 @strlen(i8* %str2)
-  %total_len = add i64 %str1_len, %str2_len
+  %sum_len = add i64 %str1_len, %str2_len
+  %total_len = add i64 %sum_len, 1
   %new_str = call i8* @malloc(i64 %total_len)
   
-  %str1_end = getelementptr i8, i8* %str1, i64 %str1_len
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %new_str, i8* %str1, i64 %str1_len, i32 1, i1 false)
-  
-  %new_str_end = getelementptr i8, i8* %new_str, i64 %str1_len
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %new_str_end, i8* %str2, i64 %str2_len, i32 1, i1 false)
+  call i64 @strcpy(i8* %new_str, i8* %str1)
+  call i64 @strcat(i8* %new_str, i8* %str2)
   
   ret i8* %new_str
 }
