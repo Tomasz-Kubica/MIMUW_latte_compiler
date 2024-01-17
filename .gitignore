@@ -1,0 +1,7 @@
+.vscode
+dist-newstyle
+*.o
+*.hi
+*.ll
+*.result
+*.bc
