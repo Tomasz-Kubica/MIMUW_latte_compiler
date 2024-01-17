@@ -38,15 +38,17 @@ removeAssignments (q:tail) mapping = (resQuads, mapping'')
 
 isQuadrupleAssignment :: Quadruple -> (Bool, PropagationMapping -> PropagationMapping)
 isQuadrupleAssignment (Copy _ (Register dest) src) = (True, Data.Map.insert dest src)
-isQuadrupleAssignment (Phi _ (Register dest) values) = (allEqual, propagation)
+isQuadrupleAssignment (Phi _ destReg@(Register dest) values) = (allEqual, propagation)
   where
     onlyValues = map fst values
-    firstValue = head onlyValues
-    allEqual = all (== firstValue) onlyValues
+    -- First value different then destination register
+    firstDifferentValue = head $ filter (/= destReg) onlyValues
+    -- True if all values are values different then destination register are equal
+    allEqual = all (\val -> val == destReg || val == firstDifferentValue) onlyValues
     propagation = if allEqual
       then
-        -- If all values are equal we treat it as a copy with first value as source (first == all)
-        Data.Map.insert dest firstValue
+        -- If all values are equal we treat it as a copy with first value different then itself as source (first == all)
+        Data.Map.insert dest firstDifferentValue
       else
         id
 isQuadrupleAssignment Phi {} = error "isQuadrupleAssignment: Destination of Phi is not a register"
