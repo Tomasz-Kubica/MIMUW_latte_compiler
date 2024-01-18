@@ -48,19 +48,21 @@ import LexLatte
   '[]'      { PT _ (TS _ 23) }
   ']'       { PT _ (TS _ 24) }
   'boolean' { PT _ (TS _ 25) }
-  'else'    { PT _ (TS _ 26) }
-  'false'   { PT _ (TS _ 27) }
-  'if'      { PT _ (TS _ 28) }
-  'int'     { PT _ (TS _ 29) }
-  'new'     { PT _ (TS _ 30) }
-  'return'  { PT _ (TS _ 31) }
-  'string'  { PT _ (TS _ 32) }
-  'true'    { PT _ (TS _ 33) }
-  'void'    { PT _ (TS _ 34) }
-  'while'   { PT _ (TS _ 35) }
-  '{'       { PT _ (TS _ 36) }
-  '||'      { PT _ (TS _ 37) }
-  '}'       { PT _ (TS _ 38) }
+  'class'   { PT _ (TS _ 26) }
+  'else'    { PT _ (TS _ 27) }
+  'extends' { PT _ (TS _ 28) }
+  'false'   { PT _ (TS _ 29) }
+  'if'      { PT _ (TS _ 30) }
+  'int'     { PT _ (TS _ 31) }
+  'new'     { PT _ (TS _ 32) }
+  'return'  { PT _ (TS _ 33) }
+  'string'  { PT _ (TS _ 34) }
+  'true'    { PT _ (TS _ 35) }
+  'void'    { PT _ (TS _ 36) }
+  'while'   { PT _ (TS _ 37) }
+  '{'       { PT _ (TS _ 38) }
+  '||'      { PT _ (TS _ 39) }
+  '}'       { PT _ (TS _ 40) }
   L_Ident   { PT _ (TV _)    }
   L_integ   { PT _ (TI _)    }
   L_quoted  { PT _ (TL _)    }
@@ -83,6 +85,7 @@ Program
 TopDef :: { (AbsLatte.BNFC'Position, AbsLatte.TopDef) }
 TopDef
   : Type Ident '(' ListArg ')' Block { (fst $1, AbsLatte.FnDef (fst $1) (snd $1) (snd $2) (snd $4) (snd $6)) }
+  | Class { (fst $1, AbsLatte.ClassDef (fst $1) (snd $1)) }
 
 ListTopDef :: { (AbsLatte.BNFC'Position, [AbsLatte.TopDef]) }
 ListTopDef
@@ -98,6 +101,21 @@ ListArg
   : {- empty -} { (AbsLatte.BNFC'NoPosition, []) }
   | Arg { (fst $1, (:[]) (snd $1)) }
   | Arg ',' ListArg { (fst $1, (:) (snd $1) (snd $3)) }
+
+Class :: { (AbsLatte.BNFC'Position, AbsLatte.Class) }
+Class
+  : 'class' Ident '{' ListClassMember '}' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.Base (uncurry AbsLatte.BNFC'Position (tokenLineCol $1)) (snd $2) (snd $4)) }
+  | 'class' Ident 'extends' Ident '{' ListClassMember '}' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.Extends (uncurry AbsLatte.BNFC'Position (tokenLineCol $1)) (snd $2) (snd $4) (snd $6)) }
+
+ClassMember :: { (AbsLatte.BNFC'Position, AbsLatte.ClassMember) }
+ClassMember
+  : Type Ident ';' { (fst $1, AbsLatte.Field (fst $1) (snd $1) (snd $2)) }
+  | Type Ident '(' ListArg ')' Block { (fst $1, AbsLatte.Method (fst $1) (snd $1) (snd $2) (snd $4) (snd $6)) }
+
+ListClassMember :: { (AbsLatte.BNFC'Position, [AbsLatte.ClassMember]) }
+ListClassMember
+  : ClassMember { (fst $1, (:[]) (snd $1)) }
+  | ClassMember ListClassMember { (fst $1, (:) (snd $1) (snd $2)) }
 
 Block :: { (AbsLatte.BNFC'Position, AbsLatte.Block) }
 Block

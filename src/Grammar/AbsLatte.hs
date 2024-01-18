@@ -23,11 +23,25 @@ data Program' a = Program a [TopDef' a]
   deriving (C.Eq, C.Ord, C.Show, C.Read, C.Functor, C.Foldable, C.Traversable)
 
 type TopDef = TopDef' BNFC'Position
-data TopDef' a = FnDef a (Type' a) Ident [Arg' a] (Block' a)
+data TopDef' a
+    = FnDef a (Type' a) Ident [Arg' a] (Block' a)
+    | ClassDef a (Class' a)
   deriving (C.Eq, C.Ord, C.Show, C.Read, C.Functor, C.Foldable, C.Traversable)
 
 type Arg = Arg' BNFC'Position
 data Arg' a = Arg a (Type' a) Ident
+  deriving (C.Eq, C.Ord, C.Show, C.Read, C.Functor, C.Foldable, C.Traversable)
+
+type Class = Class' BNFC'Position
+data Class' a
+    = Base a Ident [ClassMember' a]
+    | Extends a Ident Ident [ClassMember' a]
+  deriving (C.Eq, C.Ord, C.Show, C.Read, C.Functor, C.Foldable, C.Traversable)
+
+type ClassMember = ClassMember' BNFC'Position
+data ClassMember' a
+    = Field a (Type' a) Ident
+    | Method a (Type' a) Ident [Arg' a] (Block' a)
   deriving (C.Eq, C.Ord, C.Show, C.Read, C.Functor, C.Foldable, C.Traversable)
 
 type Block = Block' BNFC'Position
@@ -122,10 +136,21 @@ instance HasPosition Program where
 instance HasPosition TopDef where
   hasPosition = \case
     FnDef p _ _ _ _ -> p
+    ClassDef p _ -> p
 
 instance HasPosition Arg where
   hasPosition = \case
     Arg p _ _ -> p
+
+instance HasPosition Class where
+  hasPosition = \case
+    Base p _ _ -> p
+    Extends p _ _ _ -> p
+
+instance HasPosition ClassMember where
+  hasPosition = \case
+    Field p _ _ -> p
+    Method p _ _ _ _ -> p
 
 instance HasPosition Block where
   hasPosition = \case

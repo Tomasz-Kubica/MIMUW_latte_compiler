@@ -6,11 +6,25 @@ Program.   Program ::= [TopDef] ;
 
 FnDef.	   TopDef ::= Type Ident "(" [Arg] ")" Block ;
 
+ClassDef.  TopDef ::= Class ;
+
 separator nonempty TopDef "" ;
 
 Arg. 	   Arg ::= Type Ident;
 
 separator  Arg "," ;
+
+-- classes -------------------------------------------------
+
+Base.      Class ::= "class" Ident "{" [ClassMember] "}" ;
+
+Extends.   Class ::= "class" Ident "extends" Ident "{" [ClassMember] "}" ;
+
+Field.     ClassMember ::= Type Ident ";" ;
+
+Method.    ClassMember ::= Type Ident "(" [Arg] ")" Block ;
+
+separator nonempty ClassMember "" ;
 
 -- statements ----------------------------------------------
 

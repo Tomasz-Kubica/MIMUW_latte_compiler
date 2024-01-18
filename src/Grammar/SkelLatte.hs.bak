@@ -40,7 +40,7 @@ transStmt x = case x of
   AbsLatte.Empty _ -> failure x
   AbsLatte.BStmt _ block -> failure x
   AbsLatte.Decl _ type_ items -> failure x
-  AbsLatte.Ass _ ident expr -> failure x
+  AbsLatte.Ass _ expr1 expr2 -> failure x
   AbsLatte.Incr _ ident -> failure x
   AbsLatte.Decr _ ident -> failure x
   AbsLatte.Ret _ expr -> failure x
