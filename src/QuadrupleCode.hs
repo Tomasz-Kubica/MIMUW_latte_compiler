@@ -13,7 +13,6 @@ data Value
   = Register String 
   | ConstInt Integer 
   | ConstBool Bool
-  -- | ConstString String -- global string name
   deriving (Eq, Show)
 
 type Label = Integer
@@ -27,7 +26,7 @@ firstFreeLabel = 1
 type FunctionName = String
 
 data FunctionArgument = FunctionArgument TypeQ Value
-  deriving (Show)
+  deriving (Eq, Show)
 
 
 data Quadruple
@@ -42,7 +41,7 @@ data Quadruple
   | ReturnVoid
   | Phi TypeQ Value [(Value, Label)]
   | ConstString Value String Integer -- destination, name, length
-  deriving (Show)
+  deriving (Eq, Show)
 
 data ArithmeticOperator
   = Add
@@ -50,7 +49,7 @@ data ArithmeticOperator
   | Mul
   | Div
   | Mod
-  deriving (Show)
+  deriving (Eq, Show)
 
 data CompareOperator
   = Lt
@@ -59,7 +58,7 @@ data CompareOperator
   | Ge
   | Eq
   | Neq
-  deriving (Show)
+  deriving (Eq, Show)
 
 -- SIMPLE BLOCK ----------------------------------------------------------------
 

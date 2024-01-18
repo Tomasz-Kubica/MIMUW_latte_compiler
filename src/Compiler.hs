@@ -10,6 +10,7 @@ import QuadrupleCodeToBlocks
 import BlocksToSSA
 import CopyConstantPropagation
 import QuadrupleToLLVM
+import Gcse
 
 -- COMPILE PROGRAM -------------------------------------------------------------
 
@@ -30,6 +31,17 @@ genFunResultMap topDefs = funResultsMapWithStdLib
     funResultsMap = Data.Map.fromList nameTypeList
     funResultsMapWithStdLib = Data.Map.union funResultsMap stdFunctionsResultTypes
 
+performOptimizations :: [Quadruple] -> [Quadruple]
+performOptimizations quadruples = result
+  where
+    quadruples' = gcse quadruples
+    (change, quadruples'') = propagateCopyAndConstant quadruples'
+    result = if change
+      then
+        performOptimizations quadruples''
+      else
+        quadruples''
+
 -- Perform all quadruple code processing: transform to SSA, optimize (TODO), ... (TODO)
 processQuadrupleCode :: [Quadruple] -> [Quadruple]
 processQuadrupleCode quadruples = quadruples''
@@ -37,7 +49,7 @@ processQuadrupleCode quadruples = quadruples''
     blocks = divideQuadrupleCodeToBlocks quadruples
     blocks' = blocksToSSA blocks
     quadruples' = blocksToQuadrupleCode blocks'
-    quadruples'' = propagateCopyAndConstant quadruples'
+    quadruples'' = performOptimizations quadruples'
 
 -- Call processQuadrupleCode on function's body
 processFunctionQuadrupleCode :: Function -> Function

@@ -9,7 +9,8 @@ import QuadrupleCode
 
 type PropagationMapping = Data.Map.Map String Value
 
-propagateCopyAndConstant :: [Quadruple] -> [Quadruple]
+-- Propagate copy and constant expressions, return True if any changes where made
+propagateCopyAndConstant :: [Quadruple] -> (Bool, [Quadruple])
 propagateCopyAndConstant code = result
   where
     (code', mapping) = removeAssignments code Data.Map.empty
@@ -17,10 +18,12 @@ propagateCopyAndConstant code = result
     result = if Data.Map.null mapping
       then
         -- No assignments to propagate where found, return original code
-        code
+        (False, code)
       else
         -- Some assignments where found, repeat until no more assignments are found
-        propagateCopyAndConstant code''
+        (True, code''')
+          where
+            (_, code''') = propagateCopyAndConstant code''
 
 -- Remove unnecessary assignments and return the mapping of values to propagate
 removeAssignments :: [Quadruple] -> PropagationMapping -> ([Quadruple], PropagationMapping)
