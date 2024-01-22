@@ -5,18 +5,11 @@ cabal-version:       >=1.10
 
 executable LatteTypeChecker
   main-is:             TypeCheckerMain.hs
-  other-modules:       Compiler
-                     , TypeChecker
+  other-modules:       TypeChecker
                      , AbsLatte
                      , LexLatte
                      , ParLatte
                      , SimplifyExp
-                     , QuadrupleCode
-                     , QuadrupleGeneration
-                     , QuadrupleCodeToBlocks
-                     , BlocksToSSA
-                     , CopyConstantPropagation
-                     , QuadrupleToLLVM
   hs-source-dirs:      ., ./Grammar
   build-depends:       base >=4.7 && <5
                      , array ==0.5.4.0
