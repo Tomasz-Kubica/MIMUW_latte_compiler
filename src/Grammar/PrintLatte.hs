@@ -170,7 +170,7 @@ instance Print (AbsLatte.Class' a) where
 
 instance Print (AbsLatte.ClassMember' a) where
   prt i = \case
-    AbsLatte.Field _ type_ id_ -> prPrec i 0 (concatD [prt 0 type_, prt 0 id_, doc (showString ";")])
+    AbsLatte.Attr _ type_ id_ -> prPrec i 0 (concatD [prt 0 type_, prt 0 id_, doc (showString ";")])
     AbsLatte.Method _ type_ id_ args block -> prPrec i 0 (concatD [prt 0 type_, prt 0 id_, doc (showString "("), prt 0 args, doc (showString ")"), prt 0 block])
 
 instance Print [AbsLatte.ClassMember' a] where
@@ -235,6 +235,8 @@ instance Print (AbsLatte.Expr' a) where
     AbsLatte.EApp _ id_ exprs -> prPrec i 7 (concatD [prt 0 id_, doc (showString "("), prt 0 exprs, doc (showString ")")])
     AbsLatte.EString _ str -> prPrec i 7 (concatD [printString str])
     AbsLatte.EStruct _ id_ -> prPrec i 7 (concatD [doc (showString "new"), prt 0 id_])
+    AbsLatte.ENull _ id_ -> prPrec i 7 (concatD [doc (showString "("), prt 0 id_, doc (showString ")"), doc (showString "null")])
+    AbsLatte.EMethod _ expr id_ exprs -> prPrec i 6 (concatD [prt 7 expr, doc (showString "."), prt 0 id_, doc (showString "("), prt 0 exprs, doc (showString ")")])
     AbsLatte.EAttr _ expr id_ -> prPrec i 6 (concatD [prt 7 expr, doc (showString "."), prt 0 id_])
     AbsLatte.EArrEl _ expr1 expr2 -> prPrec i 6 (concatD [prt 7 expr1, doc (showString "["), prt 7 expr2, doc (showString "]")])
     AbsLatte.Neg _ expr -> prPrec i 5 (concatD [doc (showString "-"), prt 6 expr])

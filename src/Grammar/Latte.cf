@@ -20,7 +20,7 @@ Base.      Class ::= "class" Ident "{" [ClassMember] "}" ;
 
 Extends.   Class ::= "class" Ident "extends" Ident "{" [ClassMember] "}" ;
 
-Field.     ClassMember ::= Type Ident ";" ;
+Attr.      ClassMember ::= Type Ident ";" ;
 
 Method.    ClassMember ::= Type Ident "(" [Arg] ")" Block ;
 
@@ -96,6 +96,10 @@ EString.   Expr7 ::= String ;
 
 EStruct.   Expr7 ::= "new" Ident ;
 
+ENull.     Expr7 ::= "(" Ident ")" "null" ;
+
+EMethod.   Expr6 ::= Expr7 "." Ident "(" [Expr] ")" ;
+
 EAttr.     Expr6 ::= Expr7 "." Ident ;
 
 EArrEl.    Expr6 ::= Expr7 "[" Expr7 "]" ;
@@ -114,7 +118,7 @@ EAnd.      Expr1 ::= Expr2 "&&" Expr1 ;
 
 EOr.       Expr ::= Expr1 "||" Expr ;
 
-coercions  Expr 7 ;
+coercions  Expr 8 ;
 
 separator  Expr "," ;
 

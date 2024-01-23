@@ -55,14 +55,15 @@ import LexLatte
   'if'      { PT _ (TS _ 30) }
   'int'     { PT _ (TS _ 31) }
   'new'     { PT _ (TS _ 32) }
-  'return'  { PT _ (TS _ 33) }
-  'string'  { PT _ (TS _ 34) }
-  'true'    { PT _ (TS _ 35) }
-  'void'    { PT _ (TS _ 36) }
-  'while'   { PT _ (TS _ 37) }
-  '{'       { PT _ (TS _ 38) }
-  '||'      { PT _ (TS _ 39) }
-  '}'       { PT _ (TS _ 40) }
+  'null'    { PT _ (TS _ 33) }
+  'return'  { PT _ (TS _ 34) }
+  'string'  { PT _ (TS _ 35) }
+  'true'    { PT _ (TS _ 36) }
+  'void'    { PT _ (TS _ 37) }
+  'while'   { PT _ (TS _ 38) }
+  '{'       { PT _ (TS _ 39) }
+  '||'      { PT _ (TS _ 40) }
+  '}'       { PT _ (TS _ 41) }
   L_Ident   { PT _ (TV _)    }
   L_integ   { PT _ (TI _)    }
   L_quoted  { PT _ (TL _)    }
@@ -109,7 +110,7 @@ Class
 
 ClassMember :: { (AbsLatte.BNFC'Position, AbsLatte.ClassMember) }
 ClassMember
-  : Type Ident ';' { (fst $1, AbsLatte.Field (fst $1) (snd $1) (snd $2)) }
+  : Type Ident ';' { (fst $1, AbsLatte.Attr (fst $1) (snd $1) (snd $2)) }
   | Type Ident '(' ListArg ')' Block { (fst $1, AbsLatte.Method (fst $1) (snd $1) (snd $2) (snd $4) (snd $6)) }
 
 ListClassMember :: { (AbsLatte.BNFC'Position, [AbsLatte.ClassMember]) }
@@ -175,11 +176,13 @@ Expr7
   | Ident '(' ListExpr ')' { (fst $1, AbsLatte.EApp (fst $1) (snd $1) (snd $3)) }
   | String { (fst $1, AbsLatte.EString (fst $1) (snd $1)) }
   | 'new' Ident { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.EStruct (uncurry AbsLatte.BNFC'Position (tokenLineCol $1)) (snd $2)) }
-  | '(' Expr ')' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), (snd $2)) }
+  | '(' Ident ')' 'null' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.ENull (uncurry AbsLatte.BNFC'Position (tokenLineCol $1)) (snd $2)) }
+  | Expr8 { (fst $1, (snd $1)) }
 
 Expr6 :: { (AbsLatte.BNFC'Position, AbsLatte.Expr) }
 Expr6
-  : Expr7 '.' Ident { (fst $1, AbsLatte.EAttr (fst $1) (snd $1) (snd $3)) }
+  : Expr7 '.' Ident '(' ListExpr ')' { (fst $1, AbsLatte.EMethod (fst $1) (snd $1) (snd $3) (snd $5)) }
+  | Expr7 '.' Ident { (fst $1, AbsLatte.EAttr (fst $1) (snd $1) (snd $3)) }
   | Expr7 '[' Expr7 ']' { (fst $1, AbsLatte.EArrEl (fst $1) (snd $1) (snd $3)) }
   | Expr7 { (fst $1, (snd $1)) }
 
@@ -213,6 +216,10 @@ Expr :: { (AbsLatte.BNFC'Position, AbsLatte.Expr) }
 Expr
   : Expr1 '||' Expr { (fst $1, AbsLatte.EOr (fst $1) (snd $1) (snd $3)) }
   | Expr1 { (fst $1, (snd $1)) }
+
+Expr8 :: { (AbsLatte.BNFC'Position, AbsLatte.Expr) }
+Expr8
+  : '(' Expr ')' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), (snd $2)) }
 
 ListExpr :: { (AbsLatte.BNFC'Position, [AbsLatte.Expr]) }
 ListExpr

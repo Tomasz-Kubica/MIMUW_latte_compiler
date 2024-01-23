@@ -40,7 +40,7 @@ data Class' a
 
 type ClassMember = ClassMember' BNFC'Position
 data ClassMember' a
-    = Field a (Type' a) Ident
+    = Attr a (Type' a) Ident
     | Method a (Type' a) Ident [Arg' a] (Block' a)
   deriving (C.Eq, C.Ord, C.Show, C.Read, C.Functor, C.Foldable, C.Traversable)
 
@@ -88,6 +88,8 @@ data Expr' a
     | EApp a Ident [Expr' a]
     | EString a String
     | EStruct a Ident
+    | ENull a Ident
+    | EMethod a (Expr' a) Ident [Expr' a]
     | EAttr a (Expr' a) Ident
     | EArrEl a (Expr' a) (Expr' a)
     | Neg a (Expr' a)
@@ -149,7 +151,7 @@ instance HasPosition Class where
 
 instance HasPosition ClassMember where
   hasPosition = \case
-    Field p _ _ -> p
+    Attr p _ _ -> p
     Method p _ _ _ _ -> p
 
 instance HasPosition Block where
@@ -195,6 +197,8 @@ instance HasPosition Expr where
     EApp p _ _ -> p
     EString p _ -> p
     EStruct p _ -> p
+    ENull p _ -> p
+    EMethod p _ _ _ -> p
     EAttr p _ _ -> p
     EArrEl p _ _ -> p
     Neg p _ -> p

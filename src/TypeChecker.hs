@@ -3,23 +3,30 @@
 module TypeChecker ( TCMException, executeProgramCheck ) where
 
 import Data.Functor.Identity (Identity (runIdentity))
-import Control.Monad (when, unless)
+import Control.Monad (when, unless, foldM)
 import Control.Monad.State
 import Control.Monad.Writer
 import Control.Monad.Reader
 import Control.Monad.Except
 import qualified Data.Map
+import qualified Data.Set
 import Data.List (nub)
 import Data.Maybe (isJust)
 
 import AbsLatte
 import SimplifyExp
-import QuadrupleCode
+
+data FunctionSignature = FunctionSignature Type [Type]
+
+data StructType = StructType {
+  structTypeAttrs :: Data.Map.Map Ident Type,
+  structTypeMethods :: Data.Map.Map Ident FunctionSignature,
+  structTypeParent :: Maybe Ident
+}
+
 
 type TypesMap = Data.Map.Map Ident Type
-type StructType = Data.Map.Map Ident Type
 type StructTypes = Data.Map.Map Ident StructType
-data FunctionSignature = FunctionSignature Type [Type]
 type DeclaredFunctions = Data.Map.Map Ident FunctionSignature
 
 noLoc :: BNFC'Position
@@ -36,11 +43,11 @@ data TCMEnv = TCMEnv {
 
 type ChangeEnv = TCMEnv -> TCMEnv
 
-data TCMState = TCMState { 
+data TCMState = TCMState {
   stateIdCounter :: Integer
 }
 
-type TCMWrite = [Quadruple]
+type TCMWrite = [Int]
 
 type TCM a = ExceptT TCMException (ReaderT TCMEnv (WriterT TCMWrite (StateT TCMState Identity))) a
 
@@ -110,7 +117,14 @@ getStructType env id = Data.Map.lookup id structs
 getStructAttrType :: TCMEnv -> Ident -> Ident -> Maybe Type
 getStructAttrType env struct attr = case structType of
   Nothing -> Nothing
-  Just attrs -> Data.Map.lookup attr attrs
+  Just structT -> Data.Map.lookup attr (structTypeAttrs structT)
+  where
+    structType = getStructType env struct
+
+getStructMethod :: TCMEnv -> Ident -> Ident -> Maybe FunctionSignature
+getStructMethod env struct method = case structType of
+  Nothing -> Nothing
+  Just structT -> Data.Map.lookup method (structTypeMethods structT)
   where
     structType = getStructType env struct
 
@@ -165,14 +179,36 @@ noDuplicates :: Eq a => [a] -> Bool
 noDuplicates xs = length xs == length (nub xs)
 
 -- Compare Types
-compareTypes :: Type -> Type -> Bool
-compareTypes (Int _) (Int _) = True
-compareTypes (Str _) (Str _) = True
-compareTypes (Bool _) (Bool _) = True
-compareTypes (Void _) (Void _) = True
-compareTypes (Array _ t1) (Array _ t2) = compareTypes t1 t2
-compareTypes (Struct _ id1) (Struct _ id2) = id1 == id2
-compareTypes _ _ = False
+compareTypes :: Type -> Type -> TCM Bool
+compareTypes (Int _) (Int _) = return True
+compareTypes (Str _) (Str _) = return True
+compareTypes (Bool _) (Bool _) = return True
+compareTypes (Void _) (Void _) = return True
+compareTypes (Array _ t1) (Array _ t2) = error "arrays are not implemented" -- compareTypes t1 t2
+compareTypes (Struct _ id1) (Struct _ id2) = isParentClass id1 id2
+compareTypes _ _ = return False
+
+isParentClass :: Ident -> Ident -> TCM Bool
+isParentClass child parent = do
+  if child == parent
+    then return True
+    else do
+      env <- ask
+      let structs = envStructTypes env
+      let childStruct = structs Data.Map.! child
+      case structTypeParent childStruct of
+        Nothing -> return False
+        Just parentName -> isParentClass parentName parent
+
+checkType :: Type -> TCM ()
+checkType (Struct loc id) = do
+  env <- ask
+  let structType = getStructType env id
+  case structType of
+    Nothing -> throwError ("Unknown type, at " ++ showLoc loc)
+    Just _ -> return ()
+-- Basic types are ok
+checkType _ = return ()
 
 -- Check code
 
@@ -194,12 +230,19 @@ checkExpr (ELitFalse _loc) = return (Bool noLoc)
 
 checkExpr (EString _loc _val) = return (Str noLoc)
 
-checkExpr (EStruct loc id) = do
+checkExpr (EStruct loc className) = do
   env <- ask
-  let sType = getStructType env id
+  let sType = getStructType env className
   case sType of
     Nothing -> throwError ("Invalid struct name, at " ++ showLoc loc)
-    Just _ -> return (Struct noLoc id)
+    Just _ -> return (Struct noLoc className)
+
+checkExpr (ENull loc className) = do
+  env <- ask
+  let sType = getStructType env className
+  case sType of
+    Nothing -> throwError ("Invalid struct name, at " ++ showLoc loc)
+    Just _ -> return (Struct noLoc className)
 
 checkExpr (EAttr loc expr attr) = do
   expT <- checkExpr expr
@@ -213,6 +256,19 @@ checkExpr (EApp loc id args) = do
     Just (FunctionSignature retT argsT) -> do
       compareArgs loc argsT args
       return retT
+
+checkExpr (EMethod loc expr name args) = do
+  expT <- checkExpr expr
+  case expT of
+    Struct _ className -> do
+      env <- ask
+      let method = getStructMethod env className name
+      case method of
+        Nothing -> throwError ("Trying to call undefined method, at " ++ showLoc loc)
+        Just (FunctionSignature retT argsT) -> do
+          compareArgs loc argsT args
+          return retT
+    _ -> throwError ("Trying to call method of non structure, at " ++ showLoc loc)
 
 checkExpr (Neg loc expr) = do
   exprT <- checkExpr expr
@@ -243,12 +299,14 @@ checkExpr (EOr loc expr1 expr2) = do
 checkExpr (ERel loc expr1 _relOp expr2) = do
   expr1T <- checkExpr expr1
   expr2T <- checkExpr expr2
-  if compareTypes expr1T expr2T
+  comp <- compareTypes expr1T expr2T
+  if comp
     then case (expr1T, expr2T) of
       (Bool _, Bool _) -> return (Bool noLoc)
       (Str _, Str _) -> return (Bool noLoc)
       (Int _, Int _) -> return (Bool noLoc)
-      _ -> throwError ("Invalid comparison, at " ++ showLoc loc ++ ". Only values of type boolean, string or integer can be compared")
+      (Struct _ _, Struct _ _) -> return (Bool noLoc)
+      _ -> throwError ("Invalid comparison, at " ++ showLoc loc ++ ". Only values of type boolean, string, integer or structs can be compared")
     else throwError ("Comparison of values of different type, at " ++ showLoc loc)
 
 checkExpr (EAdd loc expr1 addOp expr2) = do
@@ -293,7 +351,8 @@ compareArgs loc (typesH:typesT) [] = throwError ("Not enough arguments in functi
 compareArgs loc (typesH:typesT) (exprH:exprT) = do
   exprType <- checkExpr exprH
   let loc = hasPosition exprH
-  if compareTypes typesH exprType
+  comp <- compareTypes exprType typesH
+  if comp
     then compareArgs loc typesT exprT
     else throwError ("Wrong argument type, at " ++ showLoc loc)
 
@@ -309,7 +368,8 @@ checkStmt (BStmt _loc (Block _ stmts)) = do
 checkStmt (Ass loc dest val) = do
   destT <- checkLValue loc dest
   valT <- checkExpr val
-  if compareTypes destT valT
+  comp <- compareTypes valT destT
+  if comp
     then return (False, id)
     else throwError ("Wrong type of assigned value, at " ++ showLoc loc) -- ++ show destT ++ " | " ++ show valT)
 
@@ -374,18 +434,21 @@ checkStmt (Ret loc expr) = do
   exprT <- checkExpr expr
   env <- ask
   let expectedT = getReturnType env
-  if compareTypes exprT expectedT
+  comp <- compareTypes exprT expectedT
+  if comp
     then return (True, id)
     else throwError ("Invalid type of returned value, at " ++ showLoc loc)
 
 checkStmt (VRet loc) = do
   env <- ask
   let expectedT = getReturnType env
-  if compareTypes (Void noLoc) expectedT
+  comp <- compareTypes (Void noLoc) expectedT
+  if comp
     then return (True, id)
     else throwError ("Void return but vale was expected, at " ++ showLoc loc)
 
 checkStmt (Decl loc declType vars) = do
+  checkType declType
   changeEnv <- declVars declType vars
   return (False, changeEnv)
 
@@ -420,7 +483,8 @@ declVar varType (NoInit loc varID) = do
 
 declVar varType (Init loc varID exp) = do
   expType <- checkExpr exp
-  if compareTypes expType varType
+  comp <- compareTypes expType varType
+  if comp
     then return (addVar varType varID)
     else throwError ("Expression of wrong type when initializing variable, at " ++ showLoc loc)
 
@@ -434,18 +498,52 @@ declVars varType (h:t) = do
   return (changeT.changeH)
 
 checkTopDef :: TopDef -> TCM ()
-checkTopDef (FnDef loc retType funID args body) = do
+
+checkTopDef (FnDef loc retType _ args body) = do
   (argsT, argsID, insArgs) <- insertArgs args
   unless (noDuplicates argsID) $ throwError ("Non unique arguments names, at " ++ showLoc loc)
-  let signature = FunctionSignature retType argsT
+  -- let signature = FunctionSignature retType argsT
   let insRetT = setRetType retType
   let insAll = insArgs.insRetT
   (isRet, _) <- local insAll (checkStmt (BStmt noLoc body))
-  let isRetVoid = compareTypes retType (Void noLoc)
+  isRetVoid <- compareTypes (Void noLoc) retType
   if isRetVoid || isRet
     then return ()
     else throwError ("Function with non void return type can possibly end without return statement, at " ++ showLoc loc)
 
+checkTopDef (ClassDef loc (Base _ className members)) = checkClassTopDef className members
+
+checkTopDef (ClassDef loc (Extends _ className _ members)) = checkClassTopDef className members
+
+checkClassTopDef :: Ident -> [ClassMember] -> TCM ()
+checkClassTopDef className members = do
+  let methods = filter isMethod members
+  env <- ask
+  let classDefinition = envStructTypes env Data.Map.! className
+  let attrs = structTypeAttrs classDefinition
+  local (insertAttrs attrs . insertSelf) (mapM_ checkMethod methods)
+  where
+    isMethod :: ClassMember -> Bool
+    isMethod Method {} = True
+    isMethod _ = False
+
+    insertSelf :: (TCMEnv -> TCMEnv)
+    insertSelf = addVar (Struct noLoc className) (Ident "self")
+
+    insertAttrs :: Data.Map.Map Ident Type -> (TCMEnv -> TCMEnv)
+    insertAttrs attrs = foldr ((.) . insertAttr) id (Data.Map.toList attrs)
+
+    insertAttr :: (Ident, Type) -> (TCMEnv -> TCMEnv)
+    insertAttr (id, t) env = env'
+      where
+        types = envTypes env
+        types' = Data.Map.insert id t types
+        env' = env {envTypes = types'}
+
+    checkMethod :: ClassMember -> TCM ()
+    checkMethod (Method loc retT name args block) = do
+      let functionDef = FnDef loc retT name args block
+      checkTopDef functionDef
 
 insertArgs :: [Arg] -> TCM ([Type], [Ident],ChangeEnv)
 
@@ -459,19 +557,155 @@ insertArgs ((Arg loc argT argID):t) = do
 checkTopDefs :: [TopDef] -> TCM ()
 
 checkTopDefs defs = do
-  -- TODO: Maybe check if function names are unique
-  let inserts = map insertFunFromDef defs
-  let joinedInsert = foldr (.) id inserts
-  let checks = map checkTopDef defs
-  let checkAll = sequence_ checks
-  local joinedInsert checkAll
+  let (funDefs, classDefs) = splitTopDefs defs
 
-insertFunFromDef :: TopDef -> TCMEnv -> TCMEnv
-insertFunFromDef (FnDef loc retType funID args _body) = addFun signature funID
+  -- Insert classes to env
+  let classNames = map classToName classDefs
+  let knownClasses = Data.Set.fromList classNames
+  classInsert <- insertClassFromDefs knownClasses classDefs
+
+  -- Insert functions signatures to env
+  funInserts <- local classInsert (mapM insertFunFromDef funDefs)
+  let joinedFunInsert = foldr (.) id funInserts
+
+  let insertFunAndClass = joinedFunInsert . classInsert
+  -- After inserting functions signatures and classes we perform type checking
+  -- of functions and methods implementations
+  let checkAll = mapM_ checkTopDef defs
+  local insertFunAndClass checkAll
+
+-- Split top definitions into function and class definitions
+splitTopDefs :: [TopDef] -> ([TopDef], [TopDef])
+splitTopDefs defs = (fnDefs, classDefs)
+  where
+    fnDefs = filter isFnDef defs
+    classDefs = filter isClassDef defs
+
+    isFnDef FnDef {} = True
+    isFnDef _ = False
+
+    isClassDef ClassDef {} = True
+    isClassDef _ = False
+
+classToName :: TopDef -> Ident
+classToName (ClassDef _ (Base _ name _)) = name
+classToName (ClassDef _ (Extends _ name _ _)) = name
+
+insertFunFromDef :: TopDef -> TCM (TCMEnv -> TCMEnv)
+insertFunFromDef (FnDef loc retType funID args _body) = do
+  -- Check return type
+  checkType retType
+  -- Check arguments types
+  mapM_ checkType argsT
+  return (addFun signature funID)
   where
     signature = FunctionSignature retType argsT
     argsT = map argToType args
     argToType (Arg _loc argType _id) = argType
+
+insertFunFromDef _ = error "insertFunFromDef called with non function definition"
+
+insertClassFromDefs :: Data.Set.Set Ident -> [TopDef] -> TCM (TCMEnv -> TCMEnv)
+insertClassFromDefs _ [] = return id
+insertClassFromDefs knownClasses (h:t) = do
+  insertH <- insertClassFromDef knownClasses h
+  insertT <- local insertH (insertClassFromDefs knownClasses t)
+  return (insertT.insertH)
+
+insertClassFromDef :: Data.Set.Set Ident -> TopDef -> TCM (TCMEnv -> TCMEnv)
+
+insertClassFromDef knownClasses (ClassDef loc (Base _ className classMembers)) = do
+  env <- ask
+  let structs = envStructTypes env
+  case Data.Map.lookup className structs of
+    Just _ -> throwError ("Class with non unique name, at " ++ showLoc loc)
+    Nothing -> do
+      -- No parent class, start with fresh definition
+      let structType = StructType Data.Map.empty Data.Map.empty Nothing
+      structType' <- addClassMembers knownClasses structType classMembers
+      let structs' = Data.Map.insert className structType' structs
+      return (\env -> env {envStructTypes = structs'})
+
+insertClassFromDef knownClasses (ClassDef loc (Extends _ className baseClass classMembers)) = do
+  env <- ask
+  let structs = envStructTypes env
+  case Data.Map.lookup className structs of
+    Just _ -> throwError ("Class with non unique name, at " ++ showLoc loc)
+    Nothing -> case Data.Map.lookup baseClass structs of
+      Nothing -> throwError ("Class with non existing parent class, at " ++ showLoc loc)
+      Just StructType { structTypeAttrs = attrs, structTypeMethods = methods } -> do
+        -- Start with base class definition
+        let structType = StructType attrs methods (Just baseClass)
+        structType' <- addClassMembers knownClasses structType classMembers
+        let structs' = Data.Map.insert className structType' structs
+        return (\env -> env {envStructTypes = structs'})
+
+insertClassFromDef _ _ = error "insertClassFromDef called with non class definition"
+
+addClassMembers :: Data.Set.Set Ident -> StructType -> [ClassMember] -> TCM StructType
+addClassMembers knownClasses = foldM (addClassMember knownClasses)
+
+addClassMember :: Data.Set.Set Ident -> StructType -> ClassMember -> TCM StructType
+
+addClassMember knownClasses structType (Attr loc fieldType fieldID) = do
+  -- Check attribute type
+  if isTypeDefined fieldType
+    then return ()
+    else throwError ("Unknown type, at " ++ showLoc loc)
+
+  let attrs = structTypeAttrs structType
+  if Data.Map.member fieldID attrs
+    then
+      throwError ("Attribute with non unique name, at " ++ showLoc loc)
+    else do
+      let attrs' = Data.Map.insert fieldID fieldType attrs
+      return (structType { structTypeAttrs = attrs' })
+  where
+    isTypeDefined :: Type -> Bool
+    isTypeDefined (Struct _ id) = Data.Set.member id knownClasses
+    isTypeDefined _ = True
+
+addClassMember knownClasses structType (Method loc retT methodName args _block) = do
+  let argsT = map argToType args
+
+  -- Check return type and arguments types
+  if isTypeDefined retT
+    then return ()
+    else throwError ("Unknown type, at " ++ showLoc loc)
+  let correctArgs = all isTypeDefined argsT
+  if correctArgs
+    then return ()
+    else throwError ("Unknown type, at " ++ showLoc loc)
+
+  let methods = structTypeMethods structType
+  let method = FunctionSignature retT argsT
+  case Data.Map.lookup methodName methods of
+    Just oldSignature -> if compareSignatures oldSignature method
+      then return structType
+      else throwError ("Method replacing method from parent class has to have the same return type and argument types, at " ++ showLoc loc)
+    Nothing -> do
+      let methods' = Data.Map.insert methodName method methods
+      return (structType { structTypeMethods = methods' })
+  where
+    argToType (Arg _loc argType _id) = argType
+
+    isTypeDefined :: Type -> Bool
+    isTypeDefined (Struct _ id) = Data.Set.member id knownClasses
+    isTypeDefined _ = True
+
+    exactCompareTypes :: Type -> Type -> Bool
+    exactCompareTypes (Struct _ id1) (Struct _ id2) = id1 == id2
+    exactCompareTypes (Int _) (Int _) = True
+    exactCompareTypes (Str _) (Str _) = True
+    exactCompareTypes (Bool _) (Bool _) = True
+    exactCompareTypes (Void _) (Void _) = True
+    exactCompareTypes _ _ = False
+
+    compareSignatures :: FunctionSignature -> FunctionSignature -> Bool
+    compareSignatures (FunctionSignature ret1 args1) (FunctionSignature ret2 args2) = retSame && argsSame
+      where
+        retSame = exactCompareTypes ret1 ret2
+        argsSame = all (uncurry exactCompareTypes) (zip args1 args2)
 
 checkProg :: Program -> TCM ()
 checkProg (Program _ topDefs) = do

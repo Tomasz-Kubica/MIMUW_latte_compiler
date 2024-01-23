@@ -39,7 +39,7 @@ transClass x = case x of
 
 transClassMember :: Show a => AbsLatte.ClassMember' a -> Result
 transClassMember x = case x of
-  AbsLatte.Field _ type_ ident -> failure x
+  AbsLatte.Attr _ type_ ident -> failure x
   AbsLatte.Method _ type_ ident args block -> failure x
 
 transBlock :: Show a => AbsLatte.Block' a -> Result
@@ -85,6 +85,8 @@ transExpr x = case x of
   AbsLatte.EApp _ ident exprs -> failure x
   AbsLatte.EString _ string -> failure x
   AbsLatte.EStruct _ ident -> failure x
+  AbsLatte.ENull _ ident -> failure x
+  AbsLatte.EMethod _ expr ident exprs -> failure x
   AbsLatte.EAttr _ expr ident -> failure x
   AbsLatte.EArrEl _ expr1 expr2 -> failure x
   AbsLatte.Neg _ expr -> failure x

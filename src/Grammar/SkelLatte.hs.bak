@@ -26,10 +26,21 @@ transProgram x = case x of
 transTopDef :: Show a => AbsLatte.TopDef' a -> Result
 transTopDef x = case x of
   AbsLatte.FnDef _ type_ ident args block -> failure x
+  AbsLatte.ClassDef _ class_ -> failure x
 
 transArg :: Show a => AbsLatte.Arg' a -> Result
 transArg x = case x of
   AbsLatte.Arg _ type_ ident -> failure x
+
+transClass :: Show a => AbsLatte.Class' a -> Result
+transClass x = case x of
+  AbsLatte.Base _ ident classmembers -> failure x
+  AbsLatte.Extends _ ident1 ident2 classmembers -> failure x
+
+transClassMember :: Show a => AbsLatte.ClassMember' a -> Result
+transClassMember x = case x of
+  AbsLatte.Attr _ type_ ident -> failure x
+  AbsLatte.Method _ type_ ident args block -> failure x
 
 transBlock :: Show a => AbsLatte.Block' a -> Result
 transBlock x = case x of
@@ -74,6 +85,7 @@ transExpr x = case x of
   AbsLatte.EApp _ ident exprs -> failure x
   AbsLatte.EString _ string -> failure x
   AbsLatte.EStruct _ ident -> failure x
+  AbsLatte.EMethod _ expr ident exprs -> failure x
   AbsLatte.EAttr _ expr ident -> failure x
   AbsLatte.EArrEl _ expr1 expr2 -> failure x
   AbsLatte.Neg _ expr -> failure x

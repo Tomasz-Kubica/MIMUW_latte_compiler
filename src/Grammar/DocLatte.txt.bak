@@ -30,9 +30,10 @@ except ``"`` unless preceded by ``\``.
 The set of reserved words is the set of terminals appearing in the grammar. Those reserved words that consist of non-letter characters are called symbols, and they are treated in a different way from those that are similar to identifiers. The lexer follows rules familiar from languages like Haskell, C, and Java, including longest match and spacing conventions.
 
 The reserved words used in Latte are the following:
-  | ``boolean`` | ``else`` | ``false`` | ``if``
-  | ``int`` | ``new`` | ``return`` | ``string``
-  | ``true`` | ``void`` | ``while`` |
+  | ``boolean`` | ``class`` | ``else`` | ``extends``
+  | ``false`` | ``if`` | ``int`` | ``new``
+  | ``return`` | ``string`` | ``true`` | ``void``
+  | ``while`` |  |  |
 
 The symbols used in Latte are the following:
   | ( | ) | , | {
@@ -54,12 +55,19 @@ All other symbols are terminals.
 
   | //Program// | -> | //[TopDef]//
   | //TopDef// | -> | //Type// //Ident// ``(`` //[Arg]// ``)`` //Block//
+  |  |  **|**  | //Class//
   | //[TopDef]// | -> | //TopDef//
   |  |  **|**  | //TopDef// //[TopDef]//
   | //Arg// | -> | //Type// //Ident//
   | //[Arg]// | -> | **eps**
   |  |  **|**  | //Arg//
   |  |  **|**  | //Arg// ``,`` //[Arg]//
+  | //Class// | -> | ``class`` //Ident// ``{`` //[ClassMember]// ``}``
+  |  |  **|**  | ``class`` //Ident// ``extends`` //Ident// ``{`` //[ClassMember]// ``}``
+  | //ClassMember// | -> | //Type// //Ident// ``;``
+  |  |  **|**  | //Type// //Ident// ``(`` //[Arg]// ``)`` //Block//
+  | //[ClassMember]// | -> | //ClassMember//
+  |  |  **|**  | //ClassMember// //[ClassMember]//
   | //Block// | -> | ``{`` //[Stmt]// ``}``
   | //[Stmt]// | -> | **eps**
   |  |  **|**  | //Stmt// //[Stmt]//
@@ -95,8 +103,9 @@ All other symbols are terminals.
   |  |  **|**  | //Ident// ``(`` //[Expr]// ``)``
   |  |  **|**  | //String//
   |  |  **|**  | ``new`` //Ident//
-  |  |  **|**  | ``(`` //Expr// ``)``
-  | //Expr6// | -> | //Expr7// ``.`` //Ident//
+  |  |  **|**  | //Expr8//
+  | //Expr6// | -> | //Expr7// ``.`` //Ident// ``(`` //[Expr]// ``)``
+  |  |  **|**  | //Expr7// ``.`` //Ident//
   |  |  **|**  | //Expr7// ``[`` //Expr7// ``]``
   |  |  **|**  | //Expr7//
   | //Expr5// | -> | ``-`` //Expr6//
@@ -112,6 +121,7 @@ All other symbols are terminals.
   |  |  **|**  | //Expr2//
   | //Expr// | -> | //Expr1// ``||`` //Expr//
   |  |  **|**  | //Expr1//
+  | //Expr8// | -> | ``(`` //Expr// ``)``
   | //[Expr]// | -> | **eps**
   |  |  **|**  | //Expr//
   |  |  **|**  | //Expr// ``,`` //[Expr]//
