@@ -7,12 +7,14 @@ data TypeQ
   | BoolQ 
   | VoidQ
   | StringQ
+  | StructQ String
   deriving (Eq, Show)
 
 data Value 
   = Register String 
   | ConstInt Integer 
   | ConstBool Bool
+  | ConstNull String -- Struct type
   deriving (Eq, Show)
 
 type Label = Integer
@@ -41,6 +43,10 @@ data Quadruple
   | ReturnVoid
   | Phi TypeQ Value [(Value, Label)]
   | ConstString Value String Integer -- destination, name, length
+  | GetAttr TypeQ Value String Value Integer -- attr type, destination, object type, object, index
+  | SetAttr String Value Integer TypeQ Value Value -- object type, object, index, value type, value, tmp register
+  | MethodCall Value TypeQ String Value Integer [FunctionArgument] -- destination, return type, object type, object, index, args
+  | NewStruct Value String
   deriving (Eq, Show)
 
 data ArithmeticOperator
@@ -65,11 +71,14 @@ data CompareOperator
 -- SimpleBlock           block_label  block_code  possible_next_blocks
 data SimpleBlock = SimpleBlock Label [Quadruple] [Label] 
   deriving (Show)
+
 -- FUNCTION --------------------------------------------------------------------
 
 --                    ret_type name         args              code        string_constants
 data Function = Function TypeQ FunctionName [(TypeQ, String)] [Quadruple] [(String, String)]
   deriving (Show)
 
--- TRANSLATE QUADRUPLE CODE TO LLVM --------------------------------------------
--- TODO: implement
+-- STRUCT --------------------------------------------------------------------
+
+--                         name   fields  methods
+data Structure = Structure String [TypeQ] [String]

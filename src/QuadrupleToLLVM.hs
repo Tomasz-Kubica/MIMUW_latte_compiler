@@ -1,10 +1,9 @@
-module QuadrupleToLLVM (functionToLLVM) where
+module QuadrupleToLLVM (functionToLLVM, structureToLLVM) where
 
 import QuadrupleCode
 
 -- QUADRUPLE CODE TO LLVM ------------------------------------------------------
 
--- TODO: String !!!
 quadrupleToLLVM :: Quadruple -> String
 
 quadrupleToLLVM (Copy {}) = error "quadrupleToLLVM: Final code should not contain Copy quadruples"
@@ -87,12 +86,54 @@ quadrupleToLLVM (ConstString dest name length) = addIndent llvmCode
     llvmLength = show length
     llvmCode = llvmDest ++ " = getelementptr [" ++ llvmLength ++ " x i8], [" ++ llvmLength ++ " x i8]* " ++ llvmName ++ ", i32 0, i32 0"
 
+-- Structures
+
+quadrupleToLLVM (GetAttr attrT dest structT struct attrIdx) = llvmCode
+  where
+    llvmStructT = "%" ++ structT
+    llvmStructPtrT = llvmStructT ++ "*"
+    llvmStruct = valueToLLVM struct
+    llvmGetPtrResult = registerToTmpPtr dest
+    llvmGetPtrResultCode = valueToLLVM llvmGetPtrResult
+    llvmGetPtr = "getelementptr " ++ llvmStructT ++ ", " ++ llvmStructPtrT ++ " " ++ llvmStruct ++ ", i32 0, i32 " ++ (show attrIdx)
+    llvmGetPtrCode = llvmGetPtrResultCode ++ " = " ++ llvmGetPtr
+    llvmAtrrT = typeToLLVM attrT
+    llvmLoad = "load " ++ llvmAtrrT ++ ", " ++ llvmAtrrT ++ "* " ++ llvmGetPtrResultCode
+    llvmLoadCode = valueToLLVM dest ++ " = " ++ llvmLoad
+    llvmCode = addIndent llvmGetPtrCode ++ "\n" ++ addIndent llvmLoadCode
+
+    registerToTmpPtr :: Value -> Value
+    registerToTmpPtr (Register name) = Register (name ++ "_tmp_ptr")
+
+quadrupleToLLVM (SetAttr structT struct attrIdx attrT source tmpReg) = llvmCode
+  where
+    llvmStructT = "%" ++ structT
+    llvmStructPtrT = llvmStructT ++ "*"
+    llvmStruct = valueToLLVM struct
+    llvmGetPtrResultCode = valueToLLVM tmpReg
+    llvmGetPtr = "getelementptr " ++ llvmStructT ++ ", " ++ llvmStructPtrT ++ " " ++ llvmStruct ++ ", i32 0, i32 " ++ (show attrIdx)
+    llvmGetPtrCode = llvmGetPtrResultCode ++ " = " ++ llvmGetPtr
+    llvmAtrrT = typeToLLVM attrT
+    llvmSource = valueToLLVM source
+    llvmStore = "store " ++ llvmAtrrT ++ " " ++ llvmSource ++ ", " ++ llvmAtrrT ++ "* " ++ llvmGetPtrResultCode
+    llvmCode = addIndent llvmGetPtrCode ++ "\n" ++ addIndent llvmStore
+
+quadrupleToLLVM (NewStruct dest structT) = addIndent llvmCode
+  where
+    llvmStructT = "%" ++ structT
+    llvmStructPtrT = llvmStructT ++ "*"
+    llvmDest = valueToLLVM dest
+    llvmCode = llvmDest ++ " = alloca " ++ llvmStructT
+
+-- TODO: Method call
+
 -- Convert type from quadruple code to its LLVM equivalent
 typeToLLVM :: TypeQ -> String
 typeToLLVM IntQ = "i32"
 typeToLLVM BoolQ = "i1"
 typeToLLVM VoidQ = "void"
 typeToLLVM StringQ = "i8*"
+typeToLLVM (StructQ name) = "%" ++ name ++ "*"
 
 -- Convert arithmetic operator from quadruple code to LLVM operation
 arithmeticOperatorToLLVM :: ArithmeticOperator -> String
@@ -116,6 +157,7 @@ valueToLLVM (Register name) = "%" ++ name
 valueToLLVM (ConstInt x) = show x
 valueToLLVM (ConstBool True) = "1"
 valueToLLVM (ConstBool False) = "0"
+valueToLLVM (ConstNull struct) = "null" -- TODO: is this correct?
 valueToLLVM _ = error "TODO: Constant values not implemented"
 
 labelToLLVM :: Label -> String
@@ -148,6 +190,19 @@ stringLiteralToLLVM (name, value) = llvmCode
     valueWithNull = value ++ "\00"
     llvmCode = constName ++ " = private constant [" ++ show stringLength ++ " x i8] c\"" ++ valueWithNull ++ "\""
   -- @.str = private constant [15 x i8] c"hello, world!\0A\00"
+
+
+-- STRUCTURE DEFINITION TO LLVM ------------------------------------------------
+
+structureToLLVM :: Structure -> String
+structureToLLVM (Structure name attrs methods) = llvmCode
+  where
+    llvmName = "%" ++ name
+    llvmAttrsTypes = map typeToLLVM attrs
+    llvmAttrsTypesString = joinWithComas llvmAttrsTypes
+    llvmCode = llvmName ++ " = type { " ++ llvmAttrsTypesString ++ " }"
+    -- TODO: Generate methods table
+
 
 -- UTILS -----------------------------------------------------------------------
 

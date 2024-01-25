@@ -17,19 +17,20 @@ import Gcse
 programToLLVM :: Program -> String
 programToLLVM (Program _ topDefs) = programLLVM'
   where
-    funResultsMap = genFunResultMap topDefs
-    functionsQ = map (funToQuad funResultsMap) topDefs
+    -- TODO: generate code for structuresQ
+    (structuresQ, functionsQ) = topDefsToQuad topDefs
     processedFunctionsQ = map processFunctionQuadrupleCode functionsQ
     functionsLLVM = map functionToLLVM processedFunctionsQ
-    programLLVM = unlines functionsLLVM
+    structuresLLVM = map structureToLLVM structuresQ
+    programLLVM = unlines (structuresLLVM ++ functionsLLVM)
     programLLVM' = stdFunctionsDeclarations ++ programLLVM
 
-genFunResultMap :: [TopDef] -> Data.Map.Map String TypeQ
-genFunResultMap topDefs = funResultsMapWithStdLib
-  where
-    nameTypeList = map (\(FnDef _ t (Ident name) _ _) -> (name, declTypeToTypeQ t)) topDefs
-    funResultsMap = Data.Map.fromList nameTypeList
-    funResultsMapWithStdLib = Data.Map.union funResultsMap stdFunctionsResultTypes
+-- genFunResultMap :: [TopDef] -> Data.Map.Map String TypeQ
+-- genFunResultMap topDefs = funResultsMapWithStdLib
+--   where
+--     nameTypeList = map (\(FnDef _ t (Ident name) _ _) -> (name, declTypeToTypeQ t)) topDefs
+--     funResultsMap = Data.Map.fromList nameTypeList
+--     funResultsMapWithStdLib = Data.Map.union funResultsMap stdFunctionsResultTypes
 
 performOptimizations :: [Quadruple] -> [Quadruple]
 performOptimizations quadruples = result

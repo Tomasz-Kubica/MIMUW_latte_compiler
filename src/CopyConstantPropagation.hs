@@ -81,6 +81,18 @@ applyPropagationMappingToQuadruple mapping (Return t v) = Return t (applyMapping
 applyPropagationMappingToQuadruple mapping (Phi t dest values) = Phi t dest values'
   where
     values' = map (\(v, l) -> (applyMappingToValue mapping v, l)) values
+applyPropagationMappingToQuadruple mapping (GetAttr attrT dest structT struct index) = GetAttr attrT dest structT struct' index
+  where
+    struct' = applyMappingToValue mapping struct
+    -- struct' = error (show mapping)
+applyPropagationMappingToQuadruple mapping (SetAttr structT struct index attrT source tmp) = SetAttr structT struct' index attrT source tmp
+  where
+    struct' = applyMappingToValue mapping struct
+    source' = applyMappingToValue mapping source
+applyPropagationMappingToQuadruple mapping (MethodCall dest retT structT struct idx args) = MethodCall dest retT structT struct' idx args'
+  where
+    struct' = applyMappingToValue mapping struct
+    args' = map (\(FunctionArgument t v) -> FunctionArgument t (applyMappingToValue mapping v)) args
 applyPropagationMappingToQuadruple _ other = other
 
 applyMappingToValue :: PropagationMapping -> Value -> Value

@@ -222,6 +222,17 @@ applyMappingToQuad (CompareOperation dest t src1 op src2) mapping = CompareOpera
 applyMappingToQuad (ConditionalJump val l1 l2) mapping = ConditionalJump (applyMappingToUsedValue val mapping) l1 l2
 applyMappingToQuad (FunctionCall dest t name args) mapping = FunctionCall dest t name (map (\(FunctionArgument t v) -> FunctionArgument t (applyMappingToUsedValue v mapping)) args)
 applyMappingToQuad (Return t val) mapping = Return t (applyMappingToUsedValue val mapping)
+applyMappingToQuad (GetAttr attrT dest structT struct index) mapping = GetAttr attrT dest structT struct' index
+  where
+    struct' = applyMappingToUsedValue struct mapping
+applyMappingToQuad (SetAttr structT struct index attrT source tmp) mapping = SetAttr structT struct' index attrT source' tmp
+  where
+    struct' = applyMappingToUsedValue struct mapping
+    source' = applyMappingToUsedValue source mapping
+applyMappingToQuad (MethodCall dest retT structT struct idx args) mapping = MethodCall dest retT structT struct' idx args'
+  where
+    struct' = applyMappingToUsedValue struct mapping
+    args' = map (\(FunctionArgument t v) -> FunctionArgument t (applyMappingToUsedValue v mapping)) args
 applyMappingToQuad quad _ = quad
 
 
@@ -253,6 +264,12 @@ makeQuadResultUnique (FunctionCall dest t name args) = do
 makeQuadResultUnique (Phi t dest values) = do
   (dest', mapping) <- makeDestUnique dest
   return (Phi t dest' values, mapping)
+makeQuadResultUnique (GetAttr attrT dest structT struct index) = do
+  (dest', mapping) <- makeDestUnique dest
+  return (GetAttr attrT dest' structT struct index, mapping)
+makeQuadResultUnique (MethodCall dest retT structT struct idx args) = do
+  (dest', mapping) <- makeDestUnique dest
+  return (MethodCall dest' retT structT struct idx args, mapping)
 makeQuadResultUnique quad = return (quad, id)
 
 makeDestUnique :: Value -> EliminateMonad (Value, VarToUniqueVarMap -> VarToUniqueVarMap)

@@ -47,4 +47,5 @@ executable LatteCompiler
                      , process ==1.6.9.0
                      , filepath ==1.4.2.1
                      , dom-lt ==0.2.3
+                     , sort ==1.0.0.0
   default-language:    Haskell2010
