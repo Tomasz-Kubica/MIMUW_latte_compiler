@@ -1,0 +1,17 @@
+
+int main() {
+  MyClass s = create();
+  s.n = create();
+  s.n.x = 42;
+  printInt(s.n.x);
+  return 0;
+}
+
+class MyClass {
+  int x;
+  MyClass n;
+}
+
+MyClass create() {
+  return new MyClass;
+} 

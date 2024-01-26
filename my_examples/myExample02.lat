@@ -1,0 +1,52 @@
+int main() {
+  MyClass s;
+  s.x = 40;
+  MyClass z = s;
+  s.x = s.x - 1;
+  printInt(z.x + 3);
+  z = new MyClassChild;
+  z.x = 12;
+  printInt(s.x + 3);
+
+  MyClass t;
+  t.x = 0;
+  t.y = "";
+  int i = 10;
+  while (i > 0) {
+    i--;
+    incr_attrs(t);
+    print_attrs(t);
+  }
+
+  return 0;
+}
+
+void incr_attrs(MyClass struct) {
+  struct.x = struct.x + 1;
+  struct.y = struct.y + "|";
+}
+
+void print_attrs(MyClass struct) {
+  printInt(struct.x);
+  printString(struct.y);
+}
+
+class MyClass {
+  int x;
+  string y;
+  
+  
+  void m(int a) {
+    printInt(a + x);
+    printString(y);
+    //x++;
+    //y = y + "ala ma kota";
+    return;
+  }
+  
+}
+
+class MyClassChild extends MyClass {
+  int z;
+}
+
