@@ -67,9 +67,9 @@ Grammar
 	Expr7 -> String                                    (52)
 	Expr7 -> 'new' Ident                               (53)
 	Expr7 -> '(' Ident ')' 'null'                      (54)
-	Expr7 -> Expr8                                     (55)
-	Expr6 -> Expr7 '.' Ident '(' ListExpr ')'          (56)
-	Expr6 -> Expr7 '.' Ident                           (57)
+	Expr7 -> Expr7 '.' Ident '(' ListExpr ')'          (55)
+	Expr7 -> Expr7 '.' Ident                           (56)
+	Expr7 -> Expr8                                     (57)
 	Expr6 -> Expr7 '[' Expr7 ']'                       (58)
 	Expr6 -> Expr7                                     (59)
 	Expr5 -> '-' Expr6                                 (60)
@@ -171,8 +171,8 @@ Non-terminals
 	ListItem        rules 36, 37
 	Type            rules 38, 39, 40, 41, 42, 43
 	ListType        rules 44, 45, 46
-	Expr7           rules 47, 48, 49, 50, 51, 52, 53, 54, 55
-	Expr6           rules 56, 57, 58, 59
+	Expr7           rules 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57
+	Expr6           rules 58, 59
 	Expr5           rules 60, 61, 62
 	Expr4           rules 63, 64
 	Expr3           rules 65, 66
@@ -833,8 +833,8 @@ State 47
 
 State 48
 
-	Expr6 -> Expr7 . '.' Ident '(' ListExpr ')'         (rule 56)
-	Expr6 -> Expr7 . '.' Ident                          (rule 57)
+	Expr7 -> Expr7 . '.' Ident '(' ListExpr ')'         (rule 55)
+	Expr7 -> Expr7 . '.' Ident                          (rule 56)
 	Expr6 -> Expr7 . '[' Expr7 ']'                      (rule 58)
 	Expr6 -> Expr7 .                                    (rule 59)
 
@@ -996,28 +996,28 @@ State 55
 
 State 56
 
-	Expr7 -> Expr8 .                                    (rule 55)
+	Expr7 -> Expr8 .                                    (rule 57)
 
-	'!='           reduce using rule 55
-	'%'            reduce using rule 55
-	'&&'           reduce using rule 55
-	')'            reduce using rule 55
-	'*'            reduce using rule 55
-	'+'            reduce using rule 55
-	','            reduce using rule 55
-	'-'            reduce using rule 55
-	'.'            reduce using rule 55
-	'/'            reduce using rule 55
-	';'            reduce using rule 55
-	'<'            reduce using rule 55
-	'<='           reduce using rule 55
-	'='            reduce using rule 55
-	'=='           reduce using rule 55
-	'>'            reduce using rule 55
-	'>='           reduce using rule 55
-	'['            reduce using rule 55
-	']'            reduce using rule 55
-	'||'           reduce using rule 55
+	'!='           reduce using rule 57
+	'%'            reduce using rule 57
+	'&&'           reduce using rule 57
+	')'            reduce using rule 57
+	'*'            reduce using rule 57
+	'+'            reduce using rule 57
+	','            reduce using rule 57
+	'-'            reduce using rule 57
+	'.'            reduce using rule 57
+	'/'            reduce using rule 57
+	';'            reduce using rule 57
+	'<'            reduce using rule 57
+	'<='           reduce using rule 57
+	'='            reduce using rule 57
+	'=='           reduce using rule 57
+	'>'            reduce using rule 57
+	'>='           reduce using rule 57
+	'['            reduce using rule 57
+	']'            reduce using rule 57
+	'||'           reduce using rule 57
 
 
 State 57
@@ -1860,8 +1860,8 @@ State 99
 
 State 100
 
-	Expr6 -> Expr7 '.' . Ident '(' ListExpr ')'         (rule 56)
-	Expr6 -> Expr7 '.' . Ident                          (rule 57)
+	Expr7 -> Expr7 '.' . Ident '(' ListExpr ')'         (rule 55)
+	Expr7 -> Expr7 '.' . Ident                          (rule 56)
 
 	L_Ident        shift, and enter state 2
 
@@ -2122,34 +2122,40 @@ State 116
 
 State 117
 
+	Expr7 -> Expr7 . '.' Ident '(' ListExpr ')'         (rule 55)
+	Expr7 -> Expr7 . '.' Ident                          (rule 56)
 	Expr6 -> Expr7 '[' Expr7 . ']'                      (rule 58)
 
+	'.'            shift, and enter state 100
 	']'            shift, and enter state 136
 
 
 State 118
 
-	Expr6 -> Expr7 '.' Ident . '(' ListExpr ')'         (rule 56)
-	Expr6 -> Expr7 '.' Ident .                          (rule 57)
+	Expr7 -> Expr7 '.' Ident . '(' ListExpr ')'         (rule 55)
+	Expr7 -> Expr7 '.' Ident .                          (rule 56)
 
-	'!='           reduce using rule 57
-	'%'            reduce using rule 57
-	'&&'           reduce using rule 57
+	'!='           reduce using rule 56
+	'%'            reduce using rule 56
+	'&&'           reduce using rule 56
 	'('            shift, and enter state 135
-	')'            reduce using rule 57
-	'*'            reduce using rule 57
-	'+'            reduce using rule 57
-	','            reduce using rule 57
-	'-'            reduce using rule 57
-	'/'            reduce using rule 57
-	';'            reduce using rule 57
-	'<'            reduce using rule 57
-	'<='           reduce using rule 57
-	'='            reduce using rule 57
-	'=='           reduce using rule 57
-	'>'            reduce using rule 57
-	'>='           reduce using rule 57
-	'||'           reduce using rule 57
+	')'            reduce using rule 56
+	'*'            reduce using rule 56
+	'+'            reduce using rule 56
+	','            reduce using rule 56
+	'-'            reduce using rule 56
+	'.'            reduce using rule 56
+	'/'            reduce using rule 56
+	';'            reduce using rule 56
+	'<'            reduce using rule 56
+	'<='           reduce using rule 56
+	'='            reduce using rule 56
+	'=='           reduce using rule 56
+	'>'            reduce using rule 56
+	'>='           reduce using rule 56
+	'['            reduce using rule 56
+	']'            reduce using rule 56
+	'||'           reduce using rule 56
 
 
 State 119
@@ -2469,7 +2475,7 @@ State 134
 
 State 135
 
-	Expr6 -> Expr7 '.' Ident '(' . ListExpr ')'         (rule 56)
+	Expr7 -> Expr7 '.' Ident '(' . ListExpr ')'         (rule 55)
 
 	'!'            shift, and enter state 57
 	'('            shift, and enter state 58
@@ -2598,7 +2604,7 @@ State 141
 
 State 142
 
-	Expr6 -> Expr7 '.' Ident '(' ListExpr . ')'         (rule 56)
+	Expr7 -> Expr7 '.' Ident '(' ListExpr . ')'         (rule 55)
 
 	')'            shift, and enter state 146
 
@@ -2699,25 +2705,28 @@ State 145
 
 State 146
 
-	Expr6 -> Expr7 '.' Ident '(' ListExpr ')' .         (rule 56)
+	Expr7 -> Expr7 '.' Ident '(' ListExpr ')' .         (rule 55)
 
-	'!='           reduce using rule 56
-	'%'            reduce using rule 56
-	'&&'           reduce using rule 56
-	')'            reduce using rule 56
-	'*'            reduce using rule 56
-	'+'            reduce using rule 56
-	','            reduce using rule 56
-	'-'            reduce using rule 56
-	'/'            reduce using rule 56
-	';'            reduce using rule 56
-	'<'            reduce using rule 56
-	'<='           reduce using rule 56
-	'='            reduce using rule 56
-	'=='           reduce using rule 56
-	'>'            reduce using rule 56
-	'>='           reduce using rule 56
-	'||'           reduce using rule 56
+	'!='           reduce using rule 55
+	'%'            reduce using rule 55
+	'&&'           reduce using rule 55
+	')'            reduce using rule 55
+	'*'            reduce using rule 55
+	'+'            reduce using rule 55
+	','            reduce using rule 55
+	'-'            reduce using rule 55
+	'.'            reduce using rule 55
+	'/'            reduce using rule 55
+	';'            reduce using rule 55
+	'<'            reduce using rule 55
+	'<='           reduce using rule 55
+	'='            reduce using rule 55
+	'=='           reduce using rule 55
+	'>'            reduce using rule 55
+	'>='           reduce using rule 55
+	'['            reduce using rule 55
+	']'            reduce using rule 55
+	'||'           reduce using rule 55
 
 
 State 147

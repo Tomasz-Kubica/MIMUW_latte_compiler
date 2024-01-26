@@ -177,13 +177,13 @@ Expr7
   | String { (fst $1, AbsLatte.EString (fst $1) (snd $1)) }
   | 'new' Ident { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.EStruct (uncurry AbsLatte.BNFC'Position (tokenLineCol $1)) (snd $2)) }
   | '(' Ident ')' 'null' { (uncurry AbsLatte.BNFC'Position (tokenLineCol $1), AbsLatte.ENull (uncurry AbsLatte.BNFC'Position (tokenLineCol $1)) (snd $2)) }
+  | Expr7 '.' Ident '(' ListExpr ')' { (fst $1, AbsLatte.EMethod (fst $1) (snd $1) (snd $3) (snd $5)) }
+  | Expr7 '.' Ident { (fst $1, AbsLatte.EAttr (fst $1) (snd $1) (snd $3)) }
   | Expr8 { (fst $1, (snd $1)) }
 
 Expr6 :: { (AbsLatte.BNFC'Position, AbsLatte.Expr) }
 Expr6
-  : Expr7 '.' Ident '(' ListExpr ')' { (fst $1, AbsLatte.EMethod (fst $1) (snd $1) (snd $3) (snd $5)) }
-  | Expr7 '.' Ident { (fst $1, AbsLatte.EAttr (fst $1) (snd $1) (snd $3)) }
-  | Expr7 '[' Expr7 ']' { (fst $1, AbsLatte.EArrEl (fst $1) (snd $1) (snd $3)) }
+  : Expr7 '[' Expr7 ']' { (fst $1, AbsLatte.EArrEl (fst $1) (snd $1) (snd $3)) }
   | Expr7 { (fst $1, (snd $1)) }
 
 Expr5 :: { (AbsLatte.BNFC'Position, AbsLatte.Expr) }

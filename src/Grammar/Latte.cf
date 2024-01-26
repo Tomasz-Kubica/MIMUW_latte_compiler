@@ -98,9 +98,9 @@ EStruct.   Expr7 ::= "new" Ident ;
 
 ENull.     Expr7 ::= "(" Ident ")" "null" ;
 
-EMethod.   Expr6 ::= Expr7 "." Ident "(" [Expr] ")" ;
+EMethod.   Expr7 ::= Expr7 "." Ident "(" [Expr] ")" ;
 
-EAttr.     Expr6 ::= Expr7 "." Ident ;
+EAttr.     Expr7 ::= Expr7 "." Ident ;
 
 EArrEl.    Expr6 ::= Expr7 "[" Expr7 "]" ;
 
