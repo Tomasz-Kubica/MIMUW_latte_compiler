@@ -85,7 +85,7 @@ applyPropagationMappingToQuadruple mapping (GetAttr attrT dest structT struct in
   where
     struct' = applyMappingToValue mapping struct
     -- struct' = error (show mapping)
-applyPropagationMappingToQuadruple mapping (SetAttr structT struct index attrT source tmp) = SetAttr structT struct' index attrT source tmp
+applyPropagationMappingToQuadruple mapping (SetAttr structT struct index attrT source tmp) = SetAttr structT struct' index attrT source' tmp
   where
     struct' = applyMappingToValue mapping struct
     source' = applyMappingToValue mapping source

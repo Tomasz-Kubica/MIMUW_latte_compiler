@@ -91,14 +91,18 @@ quadrupleToLLVM (ConstString dest name length) = addIndent llvmCode
 quadrupleToLLVM (GetAttr attrT dest structT struct attrIdx) = llvmCode
   where
     llvmStructT = "%" ++ structT
-    llvmStructPtrT = llvmStructT ++ "*"
+    -- llvmStructPtrT = llvmStructT ++ "*"
+    llvmStructPtrT = "ptr"
     llvmStruct = valueToLLVM struct
     llvmGetPtrResult = registerToTmpPtr dest
     llvmGetPtrResultCode = valueToLLVM llvmGetPtrResult
     llvmGetPtr = "getelementptr " ++ llvmStructT ++ ", " ++ llvmStructPtrT ++ " " ++ llvmStruct ++ ", i32 0, i32 " ++ (show attrIdx)
     llvmGetPtrCode = llvmGetPtrResultCode ++ " = " ++ llvmGetPtr
     llvmAtrrT = typeToLLVM attrT
-    llvmLoad = "load " ++ llvmAtrrT ++ ", " ++ llvmAtrrT ++ "* " ++ llvmGetPtrResultCode
+    llvmAtrrTPtr = if llvmAtrrT == "ptr"
+      then "ptr"
+      else llvmAtrrT ++ "*"
+    llvmLoad = "load " ++ llvmAtrrT ++ ", " ++ llvmAtrrTPtr ++ " " ++ llvmGetPtrResultCode
     llvmLoadCode = valueToLLVM dest ++ " = " ++ llvmLoad
     llvmCode = addIndent llvmGetPtrCode ++ "\n" ++ addIndent llvmLoadCode
 
@@ -108,24 +112,83 @@ quadrupleToLLVM (GetAttr attrT dest structT struct attrIdx) = llvmCode
 quadrupleToLLVM (SetAttr structT struct attrIdx attrT source tmpReg) = llvmCode
   where
     llvmStructT = "%" ++ structT
-    llvmStructPtrT = llvmStructT ++ "*"
+    -- llvmStructPtrT = llvmStructT ++ "*"
+    llvmStructPtrT = "ptr"
     llvmStruct = valueToLLVM struct
     llvmGetPtrResultCode = valueToLLVM tmpReg
     llvmGetPtr = "getelementptr " ++ llvmStructT ++ ", " ++ llvmStructPtrT ++ " " ++ llvmStruct ++ ", i32 0, i32 " ++ (show attrIdx)
     llvmGetPtrCode = llvmGetPtrResultCode ++ " = " ++ llvmGetPtr
     llvmAtrrT = typeToLLVM attrT
+    llvmAtrrTPtr = if llvmAtrrT == "ptr"
+      then "ptr"
+      else llvmAtrrT ++ "*"
     llvmSource = valueToLLVM source
-    llvmStore = "store " ++ llvmAtrrT ++ " " ++ llvmSource ++ ", " ++ llvmAtrrT ++ "* " ++ llvmGetPtrResultCode
+    llvmStore = "store " ++ llvmAtrrT ++ " " ++ llvmSource ++ ", " ++ llvmAtrrTPtr ++ " " ++ llvmGetPtrResultCode
     llvmCode = addIndent llvmGetPtrCode ++ "\n" ++ addIndent llvmStore
 
-quadrupleToLLVM (NewStruct dest structT) = addIndent llvmCode
+quadrupleToLLVM (NewStruct dest structT) = llvmCode
   where
+    -- Allocate memory for struct
     llvmStructT = "%" ++ structT
     llvmStructPtrT = llvmStructT ++ "*"
     llvmDest = valueToLLVM dest
-    llvmCode = llvmDest ++ " = alloca " ++ llvmStructT
+    llvmMalloc = "call ptr @malloc(i64 ptrtoint (ptr getelementptr (" ++ llvmStructT ++ ", ptr null, i32 1) to i64))"
+    llvmAlloc = llvmDest ++ " = " ++ llvmMalloc
 
--- TODO: Method call
+    -- Set method table pointer
+    methodTablePtr = getTmpRegister dest
+    llvmMethodTablePtr = valueToLLVM methodTablePtr
+    llvmGetTable = llvmMethodTablePtr ++ " = getelementptr " ++ llvmStructT ++ ", ptr " ++ llvmDest ++ ", i32 0, i32 0"
+    llvmMethodTable = classNameToMethodTableName structT
+    llvmSetTable = "store ptr " ++ llvmMethodTable ++ ", ptr " ++ llvmMethodTablePtr
+
+    -- Join generated code
+    llvmCode = unlines (map addIndent [llvmAlloc, llvmGetTable, llvmSetTable])
+
+    getTmpRegister :: Value -> Value
+    getTmpRegister (Register name) = Register (name ++ "_tmp_reg_1")
+    getTmpRegister _ = error "quadrupleToLLVM for NewStruct: getTmpRegisters: Only registers are allowed"
+
+
+
+quadrupleToLLVM (MethodCall dest retT structT struct idx args) = llvmCode
+  where
+    (methodTablePtr, methodTable, methodPtr, method) = getTmpRegisters dest
+    llvmMethodTablePtr = valueToLLVM methodTablePtr
+    llvmMethodTable = valueToLLVM methodTable
+    llvmMethodPtr = valueToLLVM methodPtr
+    llvmMethod = valueToLLVM method
+
+    -- Get method table from object
+    llvmStructT = "%" ++ structT
+    llvmGetTablePtr = llvmMethodTablePtr ++ " = getelementptr " ++ llvmStructT ++ ", ptr " ++ valueToLLVM struct ++ ", i32 0, i32 0"
+    llvmGetTable = llvmMethodTable ++ " = load ptr, ptr " ++ llvmMethodTablePtr
+
+    -- Get method from method table
+    llvmGetMethodPtr = llvmMethodPtr ++ " = getelementptr [0 x ptr], ptr " ++ llvmMethodTable ++ ", i32 0, i32 " ++ show idx
+    llvmGetMethod = llvmMethod ++ " = load ptr, ptr " ++ llvmMethodPtr
+
+    -- Call method
+    llvmDest = valueToLLVM dest
+    llvmDestToUse = if retT == VoidQ
+      then ""
+      else llvmDest ++ " = "
+    llvmRetT = typeToLLVM retT
+    argsWithSelf = FunctionArgument (StructQ structT) struct : args
+    llvmArgs = map (\(FunctionArgument t v) -> typeToLLVM t ++ " " ++ valueToLLVM v) argsWithSelf
+    llvmArgsJoined = joinWithComas llvmArgs
+    llvmCall = llvmDestToUse ++ "call " ++ llvmRetT ++ " " ++ llvmMethod ++ "(" ++ llvmArgsJoined ++ ")"
+
+    -- Join generated code
+    llvmCode = unlines (map addIndent [llvmGetTablePtr, llvmGetTable, llvmGetMethodPtr, llvmGetMethod, llvmCall])
+
+    getTmpRegisters :: Value -> (Value, Value, Value, Value)
+    getTmpRegisters (Register name) = (
+      Register (name ++ "_tmp_reg_1"),
+      Register (name ++ "_tmp_reg_2"),
+      Register (name ++ "_tmp_reg_3"),
+      Register (name ++ "_tmp_reg_4")
+      )
 
 -- Convert type from quadruple code to its LLVM equivalent
 typeToLLVM :: TypeQ -> String
@@ -133,7 +196,7 @@ typeToLLVM IntQ = "i32"
 typeToLLVM BoolQ = "i1"
 typeToLLVM VoidQ = "void"
 typeToLLVM StringQ = "i8*"
-typeToLLVM (StructQ name) = "%" ++ name ++ "*"
+typeToLLVM (StructQ name) = "ptr" --"%" ++ name ++ "*"
 
 -- Convert arithmetic operator from quadruple code to LLVM operation
 arithmeticOperatorToLLVM :: ArithmeticOperator -> String
@@ -199,9 +262,13 @@ structureToLLVM (Structure name attrs methods) = llvmCode
   where
     llvmName = "%" ++ name
     llvmAttrsTypes = map typeToLLVM attrs
-    llvmAttrsTypesString = joinWithComas llvmAttrsTypes
-    llvmCode = llvmName ++ " = type { " ++ llvmAttrsTypesString ++ " }"
-    -- TODO: Generate methods table
+    llvmAttrsTypesWithMethodsTablePtr = "ptr" : llvmAttrsTypes
+    llvmAttrsTypesString = joinWithComas llvmAttrsTypesWithMethodsTablePtr
+    llvmStruct = llvmName ++ " = type { " ++ llvmAttrsTypesString ++ " }"
+    llvmTableName = classNameToMethodTableName name
+    llvmMethods = map ("ptr @" ++) methods
+    llvmMethodTable = llvmTableName ++ " = global [" ++ show (length methods) ++ " x ptr] [" ++ joinWithComas llvmMethods ++ "]"
+    llvmCode = unlines [llvmStruct, llvmMethodTable]
 
 
 -- UTILS -----------------------------------------------------------------------
@@ -209,6 +276,9 @@ structureToLLVM (Structure name attrs methods) = llvmCode
 -- Add appropriate indentation to LLVM code
 addIndent :: String -> String
 addIndent s = "  " ++ s
+
+classNameToMethodTableName :: String -> String
+classNameToMethodTableName name = "@" ++ name ++ ".methods_table"
 
 joinWithComas :: [String] -> String
 joinWithComas [] = ""

@@ -227,14 +227,46 @@ generateQuadrupleCodeExp (EAttr _ expr name) = do
 
 generateQuadrupleCodeExp (EStruct _ (Ident name)) = do
   tmpRegisterName <- getTmpRegisterName
+  env <- ask
+  let attributesWithKey = Data.Map.toList (structAttributes (structsInfo env Data.Map.! name))
+  let attributes = map snd attributesWithKey
   tell [NewStruct tmpRegisterName name] -- Generating LLVM for this will handle setting method table pointer
+  mapM_ (attributeToInit tmpRegisterName) attributes
   return (tmpRegisterName, StructQ name)
+    where
+      attributeToInit :: Value -> (TypeQ, Integer) -> QGM ()
+      attributeToInit structReg (attrType, idx) = do
+        setTmpReg <- getTmpRegisterName
+        defaultVal <- typeToDefault attrType
+        tell [SetAttr name structReg idx attrType defaultVal setTmpReg]
+
+      typeToDefault :: TypeQ -> QGM Value
+      typeToDefault IntQ = return (ConstInt 0)
+      typeToDefault BoolQ = return (ConstBool False)
+      typeToDefault (StructQ name) = return (ConstNull name)
+      typeToDefault StringQ = do
+        (stringLoc, _) <- generateQuadrupleCodeExp (EString Nothing "")
+        return stringLoc
+
+
 
 generateQuadrupleCodeExp (ENull _ (Ident name)) = do
   let structT = StructQ name
   tmpRegisterName <- getTmpRegisterName
   tell [Copy structT tmpRegisterName (ConstNull name)]
   return (tmpRegisterName, structT)
+
+generateQuadrupleCodeExp (EMethod _ objectExpr name args) = do
+  calculatedArgs <- mapM generateQuadrupleCodeExp args
+  let argsQ = map (\(v, t) -> FunctionArgument t v) calculatedArgs
+  (objectV, objectT) <- generateQuadrupleCodeExp objectExpr
+  tmpRegisterName <- getTmpRegisterName
+  case objectT of
+    StructQ structName -> do
+      (retType, idx, _funName) <- getMethodInfo structName name
+      tell [MethodCall tmpRegisterName retType structName objectV idx argsQ]
+      return (tmpRegisterName, retType)
+    _ -> error "generateQuadrupleCodeExp: calling method of none struct"
 
 -- Boolean expressions
 
@@ -503,11 +535,11 @@ generateQuadrupleCodeStmtsListPostSimplify (stmt:tail) = do
 generateQuadrupleCodeVarDecl :: TypeQ -> Item -> QGM (QGMEnv -> QGMEnv)
 
 -- Special case for struct, should be initialize with new struct
-generateQuadrupleCodeVarDecl (StructQ structName) (NoInit _ (Ident varName)) = do
-  varQuadName <- getNewVariableQuadName
-  let varRegister = Register varQuadName
-  tell [NewStruct varRegister structName]
-  return (addVarType varName varQuadName (StructQ structName))
+-- generateQuadrupleCodeVarDecl (StructQ structName) (NoInit _ (Ident varName)) = do
+--   varQuadName <- getNewVariableQuadName
+--   let varRegister = Register varQuadName
+--   tell [NewStruct varRegister structName]
+--   return (addVarType varName varQuadName (StructQ structName))
 
 
 -- Special case for string, should be initialize with "" (empty string)
@@ -527,6 +559,7 @@ generateQuadrupleCodeVarDecl varType (NoInit _ (Ident varName)) = do
     where
       typeToInitVal IntQ = ConstInt 0
       typeToInitVal BoolQ = ConstBool False
+      typeToInitVal (StructQ name) = ConstNull name -- TODO: no idea what I am doing here
       typeToInitVal _ = error "TODO: add default values for other types"
 
 generateQuadrupleCodeVarDecl varType (Init _ (Ident varName) e) = do
@@ -553,7 +586,7 @@ topDefsToQuad topDefs = (structures, allFunctions)
 
     resultTypesMap = genFunResultMap funDefs
     (structMap, methods) = processClassDefs classDefs
-    
+
     env = QGMEnv {
       -- envVarTypes = Data.Map.empty,
       envFunResultTypes = resultTypesMap,
@@ -717,11 +750,11 @@ memberToInfo (Method _ retT (Ident methodName) arguments code) className = (modI
         typeQ = declTypeToTypeQ retT
         methodMap = structMethods info
         methodNumber = case Data.Map.lookup (Ident methodName) methodMap of
-          Nothing -> toInteger (Data.Map.size methodMap + 1) -- New method
+          Nothing -> toInteger (Data.Map.size methodMap) -- New method
           Just (_, n, _) -> n -- Method already exists in parent class and has a number in method table
         methodMap' = Data.Map.insert (Ident methodName) (typeQ, methodNumber, methodFunctionName) methodMap
         info' = info { structMethods = methodMap' }
 
 attrNumberOffset :: Int
--- attrNumberOffset = 1 -- 0 is reserved for method table pointer TODO: uncomment this after implementing method table pointer
-attrNumberOffset = 0 -- method table pointer is not implemented yet
+attrNumberOffset = 1 -- 0 is reserved for method table pointer TODO: uncomment this after implementing method table pointer
+-- attrNumberOffset = 0 -- method table pointer is not implemented yet

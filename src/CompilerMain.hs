@@ -44,11 +44,11 @@ codeToMonad code sourceFile = do
   -- Save generated code to llvm file.
   writeFile llvmFile code
   -- Compile generated llvm file.
-  let llvmProc1 = proc "llvm-as" ["-o", unlinkedFile, llvmFile]
+  let llvmProc1 = proc "llvm-as" ["-o", unlinkedFile, llvmFile, "-opaque-pointers"]
   (_, _, _, llvmHandle1) <- createProcess llvmProc1
   waitForProcess llvmHandle1
   -- Link compiled file with runtime library
-  let llvmProc2 = proc "llvm-link" ["-o", linkedFile, unlinkedFile, runtimeFile]
+  let llvmProc2 = proc "llvm-link" ["-o", linkedFile, unlinkedFile, runtimeFile, "-opaque-pointers"]
   (_, _, _, llvmHandle2) <- createProcess llvmProc2
   waitForProcess llvmHandle2
   -- Remove unlinked file
